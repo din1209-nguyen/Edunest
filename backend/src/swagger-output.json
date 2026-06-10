@@ -1,0 +1,1253 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Edunest API",
+    "version": "1.0.0",
+    "description": "REST API cho nền tảng học tiếng Anh trực tuyến Edunest. Hỗ trợ 3 vai trò: Học viên, Giảng viên, Quản trị viên.",
+    "contact": { "name": "Edunest Team", "email": "support@edunest.local" }
+  },
+  "servers": [
+    { "url": "http://localhost:5000/api", "description": "Development server" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "6748f1a2b3c4d5e6f7a8b9c0" },
+          "name": { "type": "string", "example": "Nguyễn Văn A" },
+          "email": { "type": "string", "example": "user@example.com" },
+          "role": { "type": "string", "enum": ["student", "teacher", "admin"] },
+          "avatar": { "type": "string" },
+          "bio": { "type": "string", "maxLength": 500 }
+        }
+      },
+      "Course": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "title": { "type": "string", "example": "Tiếng Anh giao tiếp cho người mới bắt đầu" },
+          "slug": { "type": "string" },
+          "description": { "type": "string" },
+          "price": { "type": "number", "example": 499000 },
+          "discountPrice": { "type": "number", "example": 299000 },
+          "level": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
+          "category": { "type": "string" },
+          "status": { "type": "string", "enum": ["draft", "pending", "published", "rejected", "locked", "banned"] },
+          "totalStudents": { "type": "integer", "example": 1250 },
+          "totalLessons": { "type": "integer", "example": 48 },
+          "totalDuration": { "type": "integer", "example": 7200 },
+          "rating": { "type": "number", "example": 4.7 },
+          "thumbnail": { "type": "string" },
+          "instructor": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "Enrollment": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "student": { "type": "string" },
+          "course": { "$ref": "#/components/schemas/Course" },
+          "progress": { "type": "number", "example": 65 },
+          "completedLessons": { "type": "array", "items": { "type": "string" } },
+          "enrolledAt": { "type": "string", "format": "date-time" },
+          "completedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "CartResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "_id": { "type": "string" },
+                "course": { "$ref": "#/components/schemas/Course" },
+                "addedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "totalItems": { "type": "integer", "example": 3 },
+          "totalPrice": { "type": "number", "example": 997000 }
+        }
+      },
+      "Certificate": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "certificateId": { "type": "string", "example": "CERT-1734567890-ABC123XYZ" },
+          "student": { "type": "string" },
+          "course": { "$ref": "#/components/schemas/Course" },
+          "issuedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "student": { "$ref": "#/components/schemas/User" },
+          "course": { "type": "string" },
+          "rating": { "type": "integer", "minimum": 1, "maximum": 5, "example": 5 },
+          "comment": { "type": "string" },
+          "helpfulVotes": { "type": "integer", "example": 42 },
+          "instructorReply": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string", "example": "Không có quyền truy cập" },
+          "code": { "type": "string", "example": "TOKEN_EXPIRED" }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer", "example": 1 },
+          "limit": { "type": "integer", "example": 10 },
+          "total": { "type": "integer", "example": 125 },
+          "totalPages": { "type": "integer", "example": 13 }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "tags": [
+    { "name": "Auth", "description": "Xác thực & quản lý tài khoản" },
+    { "name": "Courses", "description": "Khóa học công khai" },
+    {name": "Cart", "description": "Giỏ hàng (Student)" },
+    { "name": "Enrollments", "description": "Đăng ký & tiến độ học tập (Student)" },
+    { "name": "Notes", "description": "Ghi chú bài học (Student)" },
+    { "name": "Exercises", "description": "Bài tập trắc nghiệm" },
+    { "name": "Payments", "description": "Thanh toán VNPay (Student)" },
+    { "name": "Certificates", "description": "Chứng chỉ hoàn thành (Student)" },
+    { "name": "Reviews", "description": "Đánh giá khóa học" },
+    { "name": "Wishlist", "description": "Danh sách yêu thích (Student)" },
+    { "name": "Categories", "description": "Danh mục khóa học" },
+    { "name": "Search", "description": "Tìm kiếm & gợi ý" },
+    { "name": "Recommendations", "description": "Gợi ý khóa học" },
+    { "name": "AI", "description": "Tạo bài tập bằng AI" },
+    { "name": "Admin", "description": "Quản trị hệ thống (Admin)" },
+    { "name": "Teacher", "description": "Quản lý khóa học (Teacher)" },
+    { "name": "Health", "description": "Kiểm tra trạng thái server" }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Đăng ký tài khoản mới",
+        "description": "Tạo tài khoản mới với email và mật khẩu. Trả về JWT tokens và thông tin user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password"],
+                "properties": {
+                  "name": { "type": "string", "example": "Nguyễn Văn A", "minLength": 1, "maxLength": 100 },
+                  "email": { "type": "string", "format": "email", "example": "user@example.com" },
+                  "password": { "type": "string", "minLength": 6, "example": "password123" },
+                  "role": { "type": "string", "enum": ["student", "teacher"], "default": "student", "example": "student" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Đăng ký thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": { "$ref": "#/components/schemas/User" },
+                        "accessToken": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+                        "refreshToken": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error hoặc email đã tồn tại", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Đăng nhập",
+        "description": "Xác thực credentials và trả về JWT tokens.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "user@example.com" },
+                  "password": { "type": "string", "example": "password123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Đăng nhập thành công", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "example": true }, "data": { "type": "object", "properties": { "user": { "$ref": "#/components/schemas/User" }, "accessToken": { "type": "string" }, "refreshToken": { "type": "string" } } } } } } } },
+          "401": { "description": "Sai email hoặc mật khẩu", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Làm mới access token",
+        "description": "Dùng refresh token để lấy access token mới.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["refreshToken"], "properties": { "refreshToken": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Token refreshed thành công" },
+          "401": { "description": "Refresh token không hợp lệ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Lấy thông tin user hiện tại",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Thông tin user", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "data": { "type": "object", "properties": { "user": { "$ref": "#/components/schemas/User" } } } } } } } },
+          "401": { "description": "Chưa đăng nhập", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/profile": {
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Cập nhật profile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string", "maxLength": 100 }, "bio": { "type": "string", "maxLength": 500 }, "avatar": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Cập nhật thành công" },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Đổi mật khẩu",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["currentPassword", "newPassword"], "properties": { "currentPassword": { "type": "string" }, "newPassword": { "type": "string", "minLength": 6 } } } } }
+        },
+        "responses": {
+          "200": { "description": "Đổi mật khẩu thành công" },
+          "400": { "description": "Mật khẩu hiện tại không đúng" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Đăng xuất",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Đăng xuất thành công" },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Kiểm tra server đang hoạt động. Không cần auth.",
+        "responses": {
+          "200": {
+            "description": "Server đang hoạt động",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Server đang hoạt động tốt" },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "uptime": { "type": "number", "example": 12345.67 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/courses": {
+      "get": {
+        "tags": ["Courses"],
+        "summary": "Lấy danh sách khóa học",
+        "description": "Danh sách khóa học published với bộ lọc và phân trang. Không cần auth.",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Tìm kiếm theo tên" },
+          { "name": "category", "in": "query", "schema": { "type": "string" }, "description": "Lọc theo danh mục" },
+          { "name": "level", "in": "query", "schema": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] } },
+          { "name": "minPrice", "in": "query", "schema": { "type": "number" } },
+          { "name": "maxPrice", "in": "query", "schema": { "type": "number" } },
+          { "name": "isFree", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } },
+          { "name": "sortBy", "in": "query", "schema": { "type": "string", "enum": ["createdAt", "price", "rating", "totalStudents"] } },
+          { "name": "sortOrder", "in": "query", "schema": { "type": "string", "enum": ["asc", "desc"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách khóa học",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "courses": { "type": "array", "items": { "$ref": "#/components/schemas/Course" } },
+                        "pagination": { "$ref": "#/components/schemas/Pagination" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/courses/slug/{slug}": {
+      "get": {
+        "tags": ["Courses"],
+        "summary": "Lấy chi tiết khóa học theo slug",
+        "description": "Lấy thông tin chi tiết khóa học bao gồm chapters và lessons. Không cần auth.",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "tieng-anh-giao-tiep-cho-nguoi-moi-bat-dau" }
+        ],
+        "responses": {
+          "200": { "description": "Chi tiết khóa học" },
+          "404": { "description": "Không tìm thấy khóa học" }
+        }
+      }
+    },
+    "/courses/{id}": {
+      "get": {
+        "tags": ["Courses"],
+        "summary": "Lấy chi tiết khóa học theo ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Chi tiết khóa học" },
+          "404": { "description": "Không tìm thấy khóa học" }
+        }
+      }
+    },
+    "/cart": {
+      "get": {
+        "tags": ["Cart"],
+        "summary": "Lấy giỏ hàng",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Thông tin giỏ hàng", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "data": { "$ref": "#/components/schemas/CartResponse" } } } } } },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      }
+    },
+    "/cart/items": {
+      "post": {
+        "tags": ["Cart"],
+        "summary": "Thêm khóa học vào giỏ hàng",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["courseId"], "properties": { "courseId": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Thêm vào giỏ thành công", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "data": { "$ref": "#/components/schemas/CartResponse" } } } } } },
+          "409": { "description": "Khóa học đã có trong giỏ hàng" }
+        }
+      }
+    },
+    "/cart/items/{courseId}": {
+      "delete": {
+        "tags": ["Cart"],
+        "summary": "Xóa khóa học khỏi giỏ hàng",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Xóa thành công" },
+          "404": { "description": "Khóa học không có trong giỏ hàng" }
+        }
+      }
+    },
+    "/cart/clear": {
+      "delete": {
+        "tags": ["Cart"],
+        "summary": "Xóa toàn bộ giỏ hàng",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Xóa thành công" }
+        }
+      }
+    },
+    "/enrollments/my-courses": {
+      "get": {
+        "tags": ["Enrollments"],
+        "summary": "Lấy danh sách khóa học đã đăng ký",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách enrollment với progress" },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      }
+    },
+    "/enrollments/{courseId}/free-enroll": {
+      "post": {
+        "tags": ["Enrollments"],
+        "summary": "Đăng ký khóa học miễn phí",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": { "description": "Đăng ký thành công" },
+          "400": { "description": "Khóa học không miễn phí" },
+          "409": { "description": "Đã đăng ký rồi" }
+        }
+      }
+    },
+    "/enrollments/{courseId}/progress": {
+      "get": {
+        "tags": ["Enrollments"],
+        "summary": "Lấy tiến độ học tập",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Thông tin progress" },
+          "404": { "description": "Chưa đăng ký khóa học này" }
+        }
+      }
+    },
+    "/enrollments/{courseId}/lessons/{lessonId}/complete": {
+      "post": {
+        "tags": ["Enrollments"],
+        "summary": "Đánh dấu bài học hoàn thành",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "lessonId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Đánh dấu thành công, trả về progress mới" },
+          "404": { "description": "Chưa đăng ký khóa học" }
+        }
+      }
+    },
+    "/lessons/{lessonId}/notes": {
+      "get": {
+        "tags": ["Notes"],
+        "summary": "Lấy ghi chú của bài học",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "lessonId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách ghi chú" },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      },
+      "post": {
+        "tags": ["Notes"],
+        "summary": "Tạo ghi chú mới",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "lessonId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["courseId", "content"], "properties": { "courseId": { "type": "string" }, "content": { "type": "string" }, "timestamp": { "type": "number", "description": "Video timestamp (seconds)" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Ghi chú được tạo" },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/notes/{noteId}": {
+      "patch": {
+        "tags": ["Notes"],
+        "summary": "Cập nhật ghi chú",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "noteId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["content"], "properties": { "content": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Cập nhật thành công" }
+        }
+      },
+      "delete": {
+        "tags": ["Notes"],
+        "summary": "Xóa ghi chú",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "noteId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Xóa thành công" }
+        }
+      }
+    },
+    "/lessons/{lessonId}/exercises": {
+      "get": {
+        "tags": ["Exercises"],
+        "summary": "Lấy bài tập của bài học",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "lessonId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách bài tập" },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      }
+    },
+    "/exercises/{exerciseId}": {
+      "get": {
+        "tags": ["Exercises"],
+        "summary": "Lấy chi tiết bài tập",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "exerciseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Chi tiết bài tập" },
+          "404": { "description": "Không tìm thấy bài tập" }
+        }
+      }
+    },
+    "/exercises/{exerciseId}/submit": {
+      "post": {
+        "tags": ["Exercises"],
+        "summary": "Nộp bài tập",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "exerciseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["answers"], "properties": { "answers": { "type": "array", "items": { "type": "string" } } } } } }
+        },
+        "responses": {
+          "200": { "description": "Kết quả chấm điểm" },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/payments/vnpay/create": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Tạo thanh toán VNPay",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "bankCode": { "type": "string", "description": "Mã ngân hàng (VD: VNBANK)", "nullable": true } } } } }
+        },
+        "responses": {
+          "201": { "description": "Tạo URL thanh toán VNPay thành công" },
+          "400": { "description": "Giỏ hàng trống" }
+        }
+      }
+    },
+    "/payments/vnpay/return": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Callback từ VNPay",
+        "description": "VNPay redirect về sau khi thanh toán. Không cần auth.",
+        "parameters": [
+          { "name": "vnp_ResponseCode", "in": "query", "schema": { "type": "string" }, "description": "Mã phản hồi từ VNPay (00 = thành công)" },
+          { "name": "vnp_TxnRef", "in": "query", "schema": { "type": "string" }, "description": "Mã giao dịch" }
+        ],
+        "responses": {
+          "302": { "description": "Redirect về frontend" },
+          "400": { "description": "Thanh toán thất bại" }
+        }
+      }
+    },
+    "/payments/mock-success": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Mock thanh toán thành công (Demo)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["paymentId"], "properties": { "paymentId": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Thanh toán mock thành công" },
+          "400": { "description": "Payment ID không hợp lệ" }
+        }
+      }
+    },
+    "/payments/history": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Lịch sử thanh toán",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách payment history" }
+        }
+      }
+    },
+    "/certificates/my-certificates": {
+      "get": {
+        "tags": ["Certificates"],
+        "summary": "Lấy danh sách chứng chỉ",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách chứng chỉ" },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      }
+    },
+    "/certificates/{courseId}": {
+      "get": {
+        "tags": ["Certificates"],
+        "summary": "Lấy chứng chỉ theo khóa học",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Chi tiết chứng chỉ" },
+          "404": { "description": "Chưa đủ điều kiện hoặc chưa hoàn thành" }
+        }
+      }
+    },
+    "/certificates/{courseId}/check": {
+      "get": {
+        "tags": ["Certificates"],
+        "summary": "Kiểm tra đủ điều kiện nhận chứng chỉ",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kết quả kiểm tra",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "eligible": { "type": "boolean" },
+                    "currentProgress": { "type": "number" },
+                    "requiredProgress": { "type": "number", "example": 100 },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reviews": {
+      "post": {
+        "tags": ["Reviews"],
+        "summary": "Tạo review cho khóa học",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["courseId", "rating", "comment"], "properties": { "courseId": { "type": "string" }, "rating": { "type": "integer", "minimum": 1, "maximum": 5 }, "comment": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Review được tạo" },
+          "400": { "description": "Cần hoàn thành khóa học trước" }
+        }
+      }
+    },
+    "/reviews/{reviewId}": {
+      "patch": {
+        "tags": ["Reviews"],
+        "summary": "Cập nhật review",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "reviewId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "rating": { "type": "integer", "minimum": 1, "maximum": 5 }, "comment": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Cập nhật thành công" }
+        }
+      },
+      "delete": {
+        "tags": ["Reviews"],
+        "summary": "Xóa review",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "reviewId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Xóa thành công" }
+        }
+      }
+    },
+    "/courses/{courseId}/reviews": {
+      "get": {
+        "tags": ["Reviews"],
+        "summary": "Lấy reviews của khóa học",
+        "description": "Lấy danh sách review với phân trang. Không cần auth.",
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách reviews" }
+        }
+      }
+    },
+    "/courses/{courseId}/reviews/stats": {
+      "get": {
+        "tags": ["Reviews"],
+        "summary": "Thống kê rating khóa học",
+        "description": "Lấy trung bình rating và số lượng reviews. Không cần auth.",
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thống kê rating",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "averageRating": { "type": "number", "example": 4.7 },
+                    "totalReviews": { "type": "integer", "example": 128 },
+                    "ratingDistribution": {
+                      "type": "object",
+                      "example": { "5": 80, "4": 30, "3": 10, "2": 5, "1": 3 }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reviews/{reviewId}/helpful": {
+      "post": {
+        "tags": ["Reviews"],
+        "summary": "Vote review hữu ích",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "reviewId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Vote thành công" }
+        }
+      }
+    },
+    "/wishlist": {
+      "get": {
+        "tags": ["Wishlist"],
+        "summary": "Lấy danh sách wishlist",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách wishlist" }
+        }
+      },
+      "post": {
+        "tags": ["Wishlist"],
+        "summary": "Thêm vào wishlist",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["courseId"], "properties": { "courseId": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Thêm vào wishlist thành công" },
+          "409": { "description": "Đã có trong wishlist" }
+        }
+      }
+    },
+    "/wishlist/toggle": {
+      "post": {
+        "tags": ["Wishlist"],
+        "summary": "Toggle wishlist (thêm hoặc xóa)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["courseId"], "properties": { "courseId": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Toggle thành công" }
+        }
+      }
+    },
+    "/wishlist/{courseId}": {
+      "delete": {
+        "tags": ["Wishlist"],
+        "summary": "Xóa khỏi wishlist",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Xóa thành công" }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "Lấy danh sách danh mục",
+        "description": "Danh sách danh mục active. Không cần auth.",
+        "responses": {
+          "200": {
+            "description": "Danh sách danh mục",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": { "type": "string" },
+                          "name": { "type": "string", "example": "English" },
+                          "slug": { "type": "string", "example": "english" },
+                          "description": { "type": "string" },
+                          "icon": { "type": "string" },
+                          "courseCount": { "type": "integer", "example": 45 }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categories/{slug}": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "Lấy danh mục theo slug",
+        "parameters": [
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Chi tiết danh mục" },
+          "404": { "description": "Không tìm thấy danh mục" }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Tìm kiếm khóa học",
+        "description": "Tìm kiếm full-text với bộ lọc. Không cần auth.",
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Từ khóa tìm kiếm" },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "level", "in": "query", "schema": { "type": "string" } },
+          { "name": "minPrice", "in": "query", "schema": { "type": "number" } },
+          { "name": "maxPrice", "in": "query", "schema": { "type": "number" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "sortBy", "in": "query", "schema": { "type": "string", "enum": ["relevance", "newest", "price_asc", "price_desc", "rating"] } }
+        ],
+        "responses": {
+          "200": { "description": "Kết quả tìm kiếm" }
+        }
+      }
+    },
+    "/search/suggestions": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Gợi ý tìm kiếm (autocomplete)",
+        "description": "Trả về gợi ý từ khóa dựa trên tên khóa học. Không cần auth.",
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Từ khóa tìm kiếm" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách gợi ý",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "_id": { "type": "string" },
+                      "title": { "type": "string" },
+                      "slug": { "type": "string" },
+                      "thumbnail": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search/trending": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Khóa học trending",
+        "description": "Khóa học được quan tâm nhiều nhất. Không cần auth.",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách khóa học trending" }
+        }
+      }
+    },
+    "/search/newest": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Khóa học mới nhất",
+        "description": "Khóa học được tạo gần đây nhất. Không cần auth.",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách khóa học mới" }
+        }
+      }
+    },
+    "/search/top-rated": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Khóa học được đánh giá cao",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách khóa học top-rated" }
+        }
+      }
+    },
+    "/search/free": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Khóa học miễn phí",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách khóa học miễn phí" }
+        }
+      }
+    },
+    "/recommendations/public": {
+      "get": {
+        "tags": ["Recommendations"],
+        "summary": "Gợi ý khóa học (public)",
+        "description": "Gợi ý dựa trên trending. Không cần auth.",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách gợi ý" }
+        }
+      }
+    },
+    "/recommendations": {
+      "get": {
+        "tags": ["Recommendations"],
+        "summary": "Gợi ý khóa học cá nhân hóa",
+        "description": "Gợi ý dựa trên lịch sử học tập của user. Cần auth.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách gợi ý cá nhân hóa" },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      }
+    },
+    "/ai/exercises/generate": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Tạo bài tập bằng AI",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["lessonTitle", "lessonContent"], "properties": { "lessonTitle": { "type": "string", "example": "Present Perfect Tense" }, "lessonContent": { "type": "string", "example": "The present perfect is used for..." }, "exerciseType": { "type": "string", "enum": ["multiple-choice", "fill-blank", "short-answer"], "default": "multiple-choice" }, "count": { "type": "integer", "default": 5, "minimum": 1, "maximum": 10 } } } } }
+        },
+        "responses": {
+          "200": { "description": "Bài tập được tạo bởi AI" },
+          "400": { "description": "AI không khả dụng" }
+        }
+      }
+    },
+    "/ai/exercises/save": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Lưu bài tập AI (Teacher only)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["lessonId", "exercises"], "properties": { "lessonId": { "type": "string" }, "exercises": { "type": "array" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Bài tập được lưu" }
+        }
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Thống kê tổng quan",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Thống kê dashboard admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalUsers": { "type": "integer" },
+                    "totalCourses": { "type": "integer" },
+                    "totalEnrollments": { "type": "integer" },
+                    "totalRevenue": { "type": "number" },
+                    "pendingCourses": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Không có quyền admin" }
+        }
+      }
+    },
+    "/admin/courses": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Danh sách tất cả khóa học",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách khóa học" },
+          "403": { "description": "Không có quyền admin" }
+        }
+      }
+    },
+    "/admin/courses/pending": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Danh sách khóa học chờ duyệt",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách khóa học pending" },
+          "403": { "description": "Không có quyền admin" }
+        }
+      }
+    },
+    "/admin/courses/{courseId}/approve": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Duyệt khóa học",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Duyệt thành công" },
+          "403": { "description": "Không có quyền admin" },
+          "404": { "description": "Khóa học không tồn tại" }
+        }
+      }
+    },
+    "/admin/courses/{courseId}/reject": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Từ chối khóa học",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "reason": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Từ chối thành công" },
+          "403": { "description": "Không có quyền admin" }
+        }
+      }
+    },
+    "/admin/courses/{courseId}/ban": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Ban khóa học vi phạm",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Ban thành công" }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Danh sách người dùng",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách users" },
+          "403": { "description": "Không có quyền admin" }
+        }
+      }
+    },
+    "/teacher/dashboard": {
+      "get": {
+        "tags": ["Teacher"],
+        "summary": "Dashboard giáo viên",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Thống kê cá nhân của giáo viên",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalCourses": { "type": "integer" },
+                    "totalStudents": { "type": "integer" },
+                    "totalRevenue": { "type": "number" },
+                    "publishedCourses": { "type": "integer" },
+                    "pendingCourses": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Không có quyền giáo viên" }
+        }
+      }
+    },
+    "/teacher/courses": {
+      "get": {
+        "tags": ["Teacher"],
+        "summary": "Danh sách khóa học của giáo viên",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách khóa học" },
+          "403": { "description": "Không có quyền giáo viên" }
+        }
+      },
+      "post": {
+        "tags": ["Teacher"],
+        "summary": "Tạo khóa học mới",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["title", "category", "level"], "properties": { "title": { "type": "string" }, "category": { "type": "string" }, "level": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] }, "price": { "type": "number" }, "description": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Khóa học được tạo" },
+          "403": { "description": "Không có quyền giáo viên" }
+        }
+      }
+    },
+    "/teacher/courses/{courseId}/students": {
+      "get": {
+        "tags": ["Teacher"],
+        "summary": "Danh sách học viên trong khóa học",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "courseId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách học viên" },
+          "403": { "description": "Không phải chủ khóa học" }
+        }
+      }
+    }
+  }
+}
