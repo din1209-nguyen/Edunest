@@ -26,7 +26,6 @@ const teacherNavSections: DashboardNavSection[] = [
         href: "/teacher/courses",
         label: "Quản lý khóa học",
         icon: BookOpen,
-        children: [{ href: "/teacher/courses/create", label: "Tạo khóa học" }],
       },
       { href: "/teacher/students", label: "Học viên", icon: Users },
       { href: "/teacher/analytics", label: "Thống kê", icon: BarChart3 },
@@ -85,6 +84,17 @@ function getTeacherHeaderMeta(pathname: string, userName?: string) {
       actionLabel: "Tạo khóa học",
       actionHref: "/teacher/courses/create",
       actionIcon: Plus,
+    };
+  }
+
+  if (pathname.startsWith("/teacher/students")) {
+    return {
+      badge: "Creator workspace",
+      title: "Học viên",
+      subtitle: "Theo dõi học viên đã ghi danh, tiến độ học tập và khóa học liên quan.",
+      actionLabel: "Quản lý khóa học",
+      actionHref: "/teacher/courses",
+      actionIcon: BookOpen,
     };
   }
 

@@ -274,7 +274,7 @@ export default function TeacherCoursesPage() {
                             Sửa
                           </Button>
                         </Link>
-                        <Link href={`/teacher/courses/${course._id}/students`}>
+                        <Link href={`/teacher/students?courseId=${course._id}`}>
                           <Button variant="outline" size="sm" leftIcon={<Users className="h-4 w-4" />}>
                             Học viên
                           </Button>
