@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-16.2-000000?style=flat-square&logo=next.js&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=next.js&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?style=flat-square&logo=mongodb&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
@@ -78,7 +78,7 @@ Hệ thống hiện dùng 2 vai trò phân quyền chính: **Người dùng (use
 ```
                     ┌──────────────────────────────────────────────┐
                     │                 CLIENT (Browser)             │
-                    │            Next.js 16.2 (App Router)         │
+                    │            Next.js 15 (App Router)         │
                     │     React 19 + Tailwind CSS + Zustand        │
                     └──────────────────┬───────────────────────────┘
                                        │ HTTPS
@@ -212,7 +212,7 @@ edunest/
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 16.2 (App Router), React 19, Tailwind CSS 4 |
+| Frontend | Next.js 15 (App Router), React 19, Tailwind CSS 4 |
 | State | Zustand 5 |
 | Form | React Hook Form + Zod |
 | Backend | Node.js, Express 5 (ES Modules) |
