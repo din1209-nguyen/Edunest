@@ -1,8 +1,3 @@
-# Edunest UI/Agent Notes
-
-Khi sửa frontend/UI, đọc `docs/ui-design-guide.md`, `frontend/src/app/globals.css` và các component nền tảng trong `frontend/src/components/ui` trước. Giữ tiếng Việt UTF-8 có dấu, dùng token màu hiện có, không thêm mock data nghiệp vụ và chạy build sau khi sửa UI.
-
----
 # Edunest — Nền Tảng Học Tiếng Anh Trực Tuyến
 
 <div align="center">
