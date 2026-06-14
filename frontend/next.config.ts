@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const backendOrigin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:5000";
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 type MiddlewareClientMaxBodySize = NonNullable<
   NonNullable<NextConfig["experimental"]>["proxyClientMaxBodySize"]
 >;
@@ -10,6 +13,9 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: (
       process.env.NEXT_UPLOAD_MAX_BODY_SIZE || "1024mb"
     ) as MiddlewareClientMaxBodySize,
+  },
+  turbopack: {
+    root: projectRoot,
   },
   async rewrites() {
     return [
