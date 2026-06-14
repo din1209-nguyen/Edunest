@@ -21,16 +21,11 @@ Hệ thống hiện dùng 2 vai trò phân quyền chính: **Người dùng (use
 ## 🚀 Demo
 
 > **Frontend (Vercel):** `https://your-frontend.vercel.app`
+
 > **Backend (Render):** `https://your-backend.onrender.com`
+
 > **API Docs:** `https://your-backend.onrender.com/api-docs`
 
-### Tài khoản test
-
-| Vai trò | Email | Mật khẩu |
-|---------|-------|-----------|
-| **Admin** | admin@edunest.local | Admin123 |
-| **User** | creator@edunest.local | Creator123 |
-| **User** | user@edunest.local | User1234 |
 
 ---
 
@@ -82,37 +77,37 @@ Hệ thống hiện dùng 2 vai trò phân quyền chính: **Người dùng (use
 
 ```
                     ┌──────────────────────────────────────────────┐
-                    │                 CLIENT (Browser)              │
-                    │            Next.js 16.2 (App Router)          │
-                    │     React 19 + Tailwind CSS + Zustand         │
+                    │                 CLIENT (Browser)             │
+                    │            Next.js 16.2 (App Router)         │
+                    │     React 19 + Tailwind CSS + Zustand        │
                     └──────────────────┬───────────────────────────┘
                                        │ HTTPS
                     ┌──────────────────▼───────────────────────────┐
                     │           LOAD BALANCER (Vercel)             │
                     └──────────────────┬───────────────────────────┘
                                        │ HTTPS
-┌──────────────────────────────────────▼──────────────────────────────────────────┐
+┌──────────────────────────────────────▼────────────────────────────────────────────┐
 │                                  NGINX / CDN                                      │
-│                         (Static assets, Media caching)                           │
+│                         (Static assets, Media caching)                            │
 └─────────────────┬──────────────────────────────────────────┬──────────────────────┘
                   │                                          │
-         ┌────────▼────────┐                        ┌────────▼─────────┐
+         ┌────────▼────────┐                        ┌────────▼──────────┐
          │   Vercel CDN    │                        │  Render / Railway │
-         │  (Frontend)     │                        │   (Backend)      │
-         └─────────────────┘                        └────────┬─────────┘
+         │  (Frontend)     │                        │   (Backend)       │
+         └─────────────────┘                        └────────┬──────────┘
                                                               │
-                                                    ┌─────────▼──────────┐
+                                                    ┌─────────▼───────────┐
                                                     │   Express 5 (API)   │
                                                     │  Router→Controller  │
                                                     │  →Service→Model     │
-                                                    └─────────┬──────────┘
+                                                    └─────────┬───────────┘
                                                               │
-                              ┌───────────────────────────────┼───────────────────────────────┐
-                              │                               │                               │
-                    ┌─────────▼──────────┐         ┌─────────▼──────────┐         ┌──────────▼─────────┐
+                              ┌───────────────────────────────┼──────────────────────────────┐
+                              │                               │                              │
+                    ┌─────────▼──────────┐         ┌─────────▼──────────┐         ┌──────────▼────────┐
                     │   MongoDB Atlas    │         │   Cloudinary CDN   │         │   OpenAI API      │
                     │  (Primary DB)      │         │  (Video/Images)    │         │  (AI Exercises)   │
-                    └───────────────────┘         └───────────────────┘         └───────────────────┘
+                    └────────────────────┘         └────────────────────┘         └───────────────────┘
 ```
 
 ### Chiến lược Rendering (Next.js)
@@ -334,15 +329,6 @@ docker compose exec backend npm run seed
 
 Lệnh seed sẽ reset database local rồi tạo dữ liệu demo gồm users, categories, courses, chapters, lessons, exercises, enrollments, payments, reviews, certificates, cart và wishlist. Không chạy seed trên production.
 
-Tài khoản demo cố định:
-
-| Vai trò | Email | Mật khẩu |
-|---|---|---|
-| Admin | `admin@edunest.local` | `Admin123` |
-| Creator | `creator@edunest.local` | `Creator123` |
-| Teacher | `teacher@edunest.local` | `Teacher123` |
-| User | `user@edunest.local` | `User1234` |
-
 ### 5. Chạy full local không Docker
 
 Bạn cần có MongoDB local hoặc MongoDB Atlas. Nếu dùng MongoDB từ Docker Compose, giữ `MONGODB_URI=mongodb://localhost:27018/edunest` trong `.env`.
@@ -368,68 +354,6 @@ npm run dev
 
 ---
 
-## 🔧 Environment Variables
-
-### Root `.env`
-
-> Dự án chỉ dùng một file env tại root: `.env`. Docker Compose dùng file này cho cả backend và frontend.
-
-```env
-# App URLs
-FRONTEND_URL=http://localhost:3000
-MONGODB_URI=mongodb://localhost:27018/edunest
-NEXT_PUBLIC_API_URL=/api
-NEXT_PUBLIC_BACKEND_ORIGIN=http://backend:5000
-NEXT_PUBLIC_SOCKET_URL=/socket.io
-NEXT_UPLOAD_MAX_BODY_SIZE=1024mb
-UPLOAD_MAX_FILE_SIZE_MB=1024
-CLOUDINARY_UPLOAD_CHUNK_SIZE=20971520
-
-# Auth secrets
-JWT_SECRET=
-JWT_REFRESH_SECRET=
-
-# Redis cache inside Docker Compose
-REDIS_URL=redis://redis:6379
-
-# Cloudinary upload
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-
-# AI
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
-
-# Google login OAuth
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
-
-# Email sending via Brevo SMTP
-EMAIL_PROVIDER=smtp
-SMTP_FROM="Edunest <your-verified-sender@example.com>"
-SMTP_HOST=smtp-relay.brevo.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=
-SMTP_PASS=
-
-# VNPay sandbox payment
-VNPAY_TMN_CODE=
-VNPAY_HASH_SECRET=
-VNPAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-VNPAY_RETURN_URL=http://localhost:5000/api/payments/vnpay/return
-
-```
-
-Brevo SMTP values:
-- `SMTP_FROM`: sender email đã verify trong Brevo.
-- `SMTP_USER`: Brevo Dashboard → SMTP & API → SMTP login.
-- `SMTP_PASS`: Brevo Dashboard → SMTP & API → SMTP key.
-- Nếu thiếu `SMTP_USER` hoặc `SMTP_PASS`, backend sẽ trả lỗi provider chuẩn thay vì giả lập gửi email thành công.
-
----
 
 ## 📖 API Documentation
 
@@ -615,20 +539,6 @@ Cần thiết lập biến môi trường trên Vercel:
 
 Local Docker Compose intentionally does not enable MongoDB auth. Atlas/production should always use a database user and password in `MONGODB_URI`.
 
----
-
-## 🔒 Bảo mật
-
-- Mật khẩu được hash với **bcrypt** (12 rounds)
-- Access Token hết hạn sau **15 phút**
-- Refresh Token hết hạn sau **7 ngày**
-- JWT signature sử dụng **HS256**
-- CORS giới hạn origin
-- **Helmet.js** cho HTTP security headers
-- Input validation với **Zod**
-- Rate limiting (tùy chọn)
-
----
 
 ## 🧪 Testing
 
@@ -642,33 +552,7 @@ npm run test:coverage
 
 ---
 
-## 🤝 Contributing
 
-```bash
-# Tạo branch mới
-git checkout -b feature/your-feature
-
-# Commit theo semantic format
-git commit -m "feat: add new feature"
-git commit -m "fix: resolve bug"
-git commit -m "docs: update README"
-git commit -m "refactor: improve code structure"
-
-# Push và tạo Pull Request
-git push origin feature/your-feature
-```
-
-### Branching Strategy
-
-```
-main ─────────────────────────────────────────────────► production
-  │─ feat/feature-name ───────────────────────────► PR ─┘
-  │─ fix/bug-fix ─────────────────────────────────► PR ─┘
-  │─ hotfix/urgent-fix ───────────────────────────► PR ─┘
-  │─ docs/update-docs ────────────────────────────► PR ─┘
-```
-
----
 
 ## 📄 License
 
