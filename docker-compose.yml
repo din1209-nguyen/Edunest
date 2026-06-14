@@ -74,10 +74,11 @@ services:
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
       VNPAY_URL: ${VNPAY_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
       VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:5000/api/payments/vnpay/return}
-      AI_PROVIDER: ${AI_PROVIDER:-openai}
-      AI_API_KEY: ${AI_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       AI_MOCK_MODE: ${AI_MOCK_MODE:-false}
+      UPLOAD_MAX_FILE_SIZE_MB: ${UPLOAD_MAX_FILE_SIZE_MB:-1024}
+      CLOUDINARY_UPLOAD_CHUNK_SIZE: ${CLOUDINARY_UPLOAD_CHUNK_SIZE:-20971520}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -94,6 +95,7 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
         NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-/socket.io}
         NEXT_PUBLIC_BACKEND_ORIGIN: ${NEXT_PUBLIC_BACKEND_ORIGIN:-http://backend:5000}
+        NEXT_UPLOAD_MAX_BODY_SIZE: ${NEXT_UPLOAD_MAX_BODY_SIZE:-1024mb}
     restart: unless-stopped
     ports:
       - "3001:3000"
@@ -102,6 +104,7 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
       NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-/socket.io}
       NEXT_PUBLIC_BACKEND_ORIGIN: ${NEXT_PUBLIC_BACKEND_ORIGIN:-http://backend:5000}
+      NEXT_UPLOAD_MAX_BODY_SIZE: ${NEXT_UPLOAD_MAX_BODY_SIZE:-1024mb}
     depends_on:
       - backend
     networks:

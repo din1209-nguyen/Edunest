@@ -59,13 +59,10 @@ const config = {
     returnUrl: process.env.VNPAY_RETURN_URL,
   },
   ai: {
-    provider: process.env.AI_PROVIDER || "gemini",
-    apiKey: process.env.AI_API_KEY,
-    model: process.env.AI_MODEL || "gpt-4o-mini",
     mockMode: process.env.AI_MOCK_MODE === "true",
   },
   gemini: {
-    apiKey: process.env.GEMINI_API_KEY || process.env.AI_API_KEY,
+    apiKey: process.env.GEMINI_API_KEY,
     model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
   },
   google: {
