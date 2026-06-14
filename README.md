@@ -1,8 +1,3 @@
-# Edunest UI/Agent Notes
-
-Khi sửa frontend/UI, đọc `docs/ui-design-guide.md`, `frontend/src/app/globals.css` và các component nền tảng trong `frontend/src/components/ui` trước. Giữ tiếng Việt UTF-8 có dấu, dùng token màu hiện có, không thêm mock data nghiệp vụ và chạy build sau khi sửa UI.
-
----
 # Edunest — Nền Tảng Học Tiếng Anh Trực Tuyến
 
 <div align="center">
@@ -75,11 +70,11 @@ Hệ thống hiện dùng 2 vai trò phân quyền chính: **Người dùng (use
 ### Hệ thống
 
 - [x] JWT + Refresh Token (2 role: user + admin)
-- [x] Docker Compose (điểm cộng)
-- [x] Unit tests (Jest) (điểm cộng)
-- [x] Server Actions (Next.js) *(tiêu chí BE9)*
+- [x] Docker Compose
+- [x] Unit tests (Jest)
+- [x] Server Actions (Next.js) 
 - [x] Server Actions cho enrollment, cart, lesson completion và mock checkout
-- [x] Email notification (Nodemailer) *(điểm cộng)*
+- [x] Email notification (Nodemailer) 
 
 ---
 
@@ -241,65 +236,123 @@ edunest/
 
 ## 🛠️ Cài đặt
 
-### 1. Clone dự án
+### 1. Chuẩn bị
 
 ```bash
-git clone https://github.com/yourusername/edunest.git
+git clone https://github.com/din1209-nguyen/Edunest.git
 cd edunest
 ```
 
-### 2. Cấu hình environment
+Yêu cầu tối thiểu:
+
+- Node.js 20+
+- Docker Desktop hoặc Docker Engine có Docker Compose
+- npm
+
+### 2. Tạo file môi trường
+
+Dự án dùng **một file `.env` ở thư mục root** cho cả backend và frontend.
 
 ```bash
-# Tạo file .env duy nhất ở root từ .env.example
+# macOS/Linux/Git Bash
 cp .env.example .env
 
-# Chỉnh sửa .env với các giá trị thực
-# Cần ít nhất: JWT_SECRET, JWT_REFRESH_SECRET
+# Windows PowerShell
+Copy-Item .env.example .env
 ```
 
-### 3. Cài đặt dependency
+Mở `.env` và điền tối thiểu:
+
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+
+Các biến còn lại như Cloudinary, Google OAuth, SMTP, VNPay, AI có thể để trống nếu chưa dùng các tính năng tương ứng.
+
+### 3. Chọn cách chạy
+
+#### Cách A: Backend bằng Docker, frontend chạy local
+
+Đây là cách phù hợp khi phát triển frontend vì Next.js chạy ở chế độ dev và tự reload khi sửa code.
+
+```bash
+# Cài dependency cho frontend
+npm install --prefix frontend
+
+# Chạy backend cùng MongoDB và Redis
+docker compose up --build -d backend
+docker compose ps
+
+# Chạy frontend local
+cd frontend
+npm run dev
+```
+
+Với cách này:
+
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:5000`
+- API Docs: `http://localhost:5000/api-docs`
+- MongoDB trên host: `localhost:27018`
+- Redis chỉ chạy trong network nội bộ Docker Compose
+
+Backend chạy bằng Docker nên không cần `npm install` trong thư mục `backend` trước. Dockerfile sẽ tự cài dependency khi build image.
+
+#### Cách B: Chạy toàn bộ bằng Docker Compose
+
+Nếu chỉ muốn chạy app nhanh mà không cần dev frontend trực tiếp, dùng:
+
+```bash
+docker compose up -d --build
+```
+
+Với cách này không cần chạy `npm install` ngoài host. Docker sẽ tự cài dependency cho cả backend và frontend khi build image.
+
+Sau khi container chạy xong:
+
+- Frontend: `http://localhost:3001`
+- Backend API: `http://localhost:5000`
+- API Docs: `http://localhost:5000/api-docs`
+- MongoDB trên host: `localhost:27018`
+- Redis chỉ chạy trong network nội bộ Docker Compose
+
+Xem log khi cần debug:
+
+```bash
+docker compose logs backend
+docker compose logs frontend
+```
+
+MongoDB local trong Docker Compose không bật authentication. Backend trong container sẽ dùng `mongodb://mongodb:27017/edunest`, còn máy host có thể truy cập MongoDB qua `mongodb://localhost:27018/edunest`.
+
+### 4. Seed dữ liệu demo
+
+Chạy sau khi backend Docker đã khởi động:
+
+```bash
+docker compose exec backend npm run seed
+```
+
+Lệnh seed sẽ reset database local rồi tạo dữ liệu demo gồm users, categories, courses, chapters, lessons, exercises, enrollments, payments, reviews, certificates, cart và wishlist. Không chạy seed trên production.
+
+Tài khoản demo cố định:
+
+| Vai trò | Email | Mật khẩu |
+|---|---|---|
+| Admin | `admin@edunest.local` | `Admin123` |
+| Creator | `creator@edunest.local` | `Creator123` |
+| Teacher | `teacher@edunest.local` | `Teacher123` |
+| User | `user@edunest.local` | `User1234` |
+
+### 5. Chạy full local không Docker
+
+Bạn cần có MongoDB local hoặc MongoDB Atlas. Nếu dùng MongoDB từ Docker Compose, giữ `MONGODB_URI=mongodb://localhost:27018/edunest` trong `.env`.
+
+Trước khi chạy full local, cài dependency cho cả hai phần:
 
 ```bash
 npm install --prefix backend
 npm install --prefix frontend
 ```
-
-> Backend mặc định chạy trong Docker Compose và đọc env từ root `.env`. Không tạo `backend/.env` hoặc `frontend/.env.local`.
-
-### 4. Chạy với Docker Compose (Khuyến nghị và là mặc định để test)
-
-```bash
-# Kiểm tra cấu hình Compose đã resolve env hợp lệ
-docker compose config
-
-# Build lại toàn bộ service rồi chạy nền
-docker compose up -d --build
-
-# Xem trạng thái container
-
-docker compose ps
-
-# Xem log backend/frontend khi cần debug
-
-docker compose logs backend
-docker compose logs frontend
-
-# Frontend: http://localhost:3001
-# Backend API: http://localhost:5000
-# MongoDB: localhost:27018
-# Redis: service nội bộ Compose, không publish port ra host
-```
-
-MongoDB trong Docker Compose local khong bat authentication, nen backend ket noi bang `mongodb://mongodb:27017/edunest` va khong can user/password. Khi deploy production hoac dung MongoDB Atlas, hay dung URI co credential nhu `mongodb+srv://<username>:<password>@cluster.mongodb.net/edunest`.
-
-### 5. Chính sách test cho agent
-
-- Khi kiểm tra, test, hoặc tái hiện lỗi, agent nên **ưu tiên Docker Compose** thay vì chạy host trực tiếp.
-- Nếu cần smoke test toàn stack, hãy khởi động bằng `docker compose up -d --build` trước.
-- Chỉ dùng lệnh local ngoài Docker khi cần debug cục bộ mà Docker không đủ để xác minh vấn đề.
-
-### 6. Chạy local (không Docker)
 
 ```bash
 # Terminal 1: Backend
@@ -313,25 +366,6 @@ npm run dev
 # App chạy tại http://localhost:3000
 ```
 
-### 7. Seed du lieu local/demo
-
-```bash
-docker compose exec backend npm run seed
-```
-
-Lenh seed chay trong backend container va se reset local MongoDB database truoc khi tao du lieu demo. Khong chay seed tren production.
-
-Seed tao du lieu that trong MongoDB cho users, categories, courses, chapters, lessons, exercises, enrollments, payments, reviews, certificates, cart va wishlist. Frontend khong dung mock arrays cho du lieu nghiep vu; cac man hinh chinh doc du lieu qua API backend.
-
-Tai khoan demo co dinh:
-
-| Vai tro | Email | Mat khau |
-|---|---|---|
-| Admin | `admin@edunest.local` | `Admin123` |
-| Creator | `creator@edunest.local` | `Creator123` |
-| Teacher | `teacher@edunest.local` | `Teacher123` |
-| User | `user@edunest.local` | `User1234` |
-
 ---
 
 ## 🔧 Environment Variables
@@ -342,9 +376,14 @@ Tai khoan demo co dinh:
 
 ```env
 # App URLs
-FRONTEND_URL=http://localhost:3001
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
+FRONTEND_URL=http://localhost:3000
+MONGODB_URI=mongodb://localhost:27018/edunest
+NEXT_PUBLIC_API_URL=/api
+NEXT_PUBLIC_BACKEND_ORIGIN=http://backend:5000
+NEXT_PUBLIC_SOCKET_URL=/socket.io
+NEXT_UPLOAD_MAX_BODY_SIZE=1024mb
+UPLOAD_MAX_FILE_SIZE_MB=1024
+CLOUDINARY_UPLOAD_CHUNK_SIZE=20971520
 
 # Auth secrets
 JWT_SECRET=
@@ -358,14 +397,9 @@ CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 
-# VNPay sandbox payment
-VNPAY_TMN_CODE=
-VNPAY_HASH_SECRET=
-VNPAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-VNPAY_RETURN_URL=http://localhost:5000/api/payments/vnpay/return
-
-# AI exercise generator (empty = mock fallback)
-AI_API_KEY=
+# AI
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
 
 # Google login OAuth
 GOOGLE_CLIENT_ID=
@@ -380,6 +414,13 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
+
+# VNPay sandbox payment
+VNPAY_TMN_CODE=
+VNPAY_HASH_SECRET=
+VNPAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+VNPAY_RETURN_URL=http://localhost:5000/api/payments/vnpay/return
+
 ```
 
 Brevo SMTP values:

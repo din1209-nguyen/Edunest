@@ -82,7 +82,30 @@ export default function AdminCategoriesPage() {
   }
 
   useEffect(() => {
-    void loadCategories();
+    let ignore = false;
+
+    adminCategoryApi
+      .getAllCategories()
+      .then((response) => {
+        if (!ignore) {
+          setCategories((response.data ?? []) as AdminCategory[]);
+        }
+      })
+      .catch((requestError) => {
+        if (ignore) return;
+        const axiosError = requestError as AxiosError<{ message?: string }>;
+        setError(axiosError.response?.data?.message || axiosError.message || "KhÃ´ng thá»ƒ táº£i danh má»¥c.");
+        setCategories([]);
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const filteredCategories = useMemo(() => {

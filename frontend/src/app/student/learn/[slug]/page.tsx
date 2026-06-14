@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { courseApi, exerciseApi } from "@/lib/studentApi";
@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Progress } from "@/components/ui/Progress";
-import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import {
@@ -71,8 +70,7 @@ function canEmbedDocument(url?: string) {
     const parsed = new URL(url);
     return (
       parsed.pathname.toLowerCase().endsWith(".pdf") ||
-      (parsed.hostname.includes("cloudinary.com") &&
-        parsed.pathname.includes("/image/upload/"))
+      (parsed.hostname.includes("cloudinary.com") && parsed.pathname.includes("/image/upload/"))
     );
   } catch {
     return false;
@@ -101,9 +99,7 @@ function gradeAiExercise(
 
   exercise.questions.forEach((question, index) => {
     const userAnswer = answers[index];
-    const correctSet = new Set(
-      question.correctAnswers.map((answer) => answer.trim().toLowerCase()),
-    );
+    const correctSet = new Set(question.correctAnswers.map((answer) => answer.trim().toLowerCase()));
     const userSet = new Set(
       (Array.isArray(userAnswer) ? userAnswer : [userAnswer]).map((answer) =>
         (answer || "").trim().toLowerCase(),
@@ -129,10 +125,7 @@ function gradeAiExercise(
     });
   });
 
-  result.score =
-    result.totalPoints > 0
-      ? Math.round((result.earnedPoints / result.totalPoints) * 100)
-      : 0;
+  result.score = result.totalPoints > 0 ? Math.round((result.earnedPoints / result.totalPoints) * 100) : 0;
   result.passed = result.score >= (result.passingScore ?? 60);
 
   return result;
@@ -167,18 +160,13 @@ export default function LearnCoursePage() {
         const courseRes = await courseApi.getCourseBySlug(slug);
         const c = courseRes.data?.course;
 
-        if (!c) {
-          throw new Error("Course not found");
-        }
+        if (!c) throw new Error("Course not found");
 
         const progressRes = await fetch(`/api/enrollments/${c._id}/progress`, { credentials: "include" });
         const progressPayload = await progressRes.json().catch(() => null);
         const p = progressPayload?.data?.progress;
 
-        if (!progressRes.ok || !p) {
-          throw new Error("Progress not found");
-        }
-
+        if (!progressRes.ok || !p) throw new Error("Progress not found");
         if (cancelled) return;
 
         setCourse(c);
@@ -186,9 +174,7 @@ export default function LearnCoursePage() {
           progress: p.progress ?? 0,
           completedLessons: (p.completedLessons as unknown as string[]) ?? [],
         });
-
-        const firstLesson = c.chapters?.[0]?.lessons?.[0];
-        setActiveLessonId(firstLesson?._id ?? null);
+        setActiveLessonId(c.chapters?.[0]?.lessons?.[0]?._id ?? null);
       } catch {
         if (!cancelled) {
           setCourse(null);
@@ -222,18 +208,11 @@ export default function LearnCoursePage() {
     activeLesson &&
       (activeLesson.type === "pdf" || activeLesson.type === "document") &&
       activeLesson.documentType === "pdf" &&
-      (activeLesson.documentUrl || activeLesson.pdfUrl),
+      activeLessonDocumentUrl,
   );
 
-  const isLessonCompleted = (lessonId: string) => {
-    return Boolean(progress?.completedLessons?.includes(lessonId));
-  };
-
-  const canAccessLesson = (lesson: Lesson) => {
-    if (!lesson) return false;
-    if (lesson.isFree) return true;
-    return Boolean(progress);
-  };
+  const isLessonCompleted = (lessonId: string) => Boolean(progress?.completedLessons?.includes(lessonId));
+  const canAccessLesson = useCallback((lesson: Lesson) => Boolean(lesson.isFree || progress), [progress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,9 +230,7 @@ export default function LearnCoursePage() {
       try {
         const res = await exerciseApi.getExercisesByLesson(activeLesson._id);
         const exercises = res.data?.exercises ?? [];
-
         if (cancelled) return;
-
         setLessonExercises(exercises);
         setSelectedExerciseId(exercises[0]?._id ?? null);
       } catch (error) {
@@ -272,11 +249,12 @@ export default function LearnCoursePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeLesson, progress]);
+  }, [activeLesson, canAccessLesson]);
 
-  const selectedExercise = useMemo(() => {
-    return lessonExercises.find((exercise) => exercise._id === selectedExerciseId) ?? null;
-  }, [lessonExercises, selectedExerciseId]);
+  const selectedExercise = useMemo(
+    () => lessonExercises.find((exercise) => exercise._id === selectedExerciseId) ?? null,
+    [lessonExercises, selectedExerciseId],
+  );
 
   const getExerciseAnswer = (exerciseId: string, questionIndex: number): ExerciseAnswer => {
     return exerciseAnswers[exerciseId]?.[questionIndex] ?? "";
@@ -304,9 +282,7 @@ export default function LearnCoursePage() {
     const answers = exerciseAnswers[exercise._id] ?? [];
     return exercise.questions.every((_, index) => {
       const answer = answers[index];
-      if (exercise.type === "multiple-choice") {
-        return Array.isArray(answer) && answer.length > 0;
-      }
+      if (exercise.type === "multiple-choice") return Array.isArray(answer) && answer.length > 0;
       return typeof answer === "string" && answer.trim().length > 0;
     });
   };
@@ -326,10 +302,7 @@ export default function LearnCoursePage() {
 
       const res = await exerciseApi.submitExercise(exercise._id, answers);
       const result = res.data?.result;
-
-      if (!result) {
-        throw new Error("Không nhận được kết quả bài tập.");
-      }
+      if (!result) throw new Error("Không nhận được kết quả bài tập.");
 
       setExerciseResults((current) => ({ ...current, [exercise._id]: result }));
       toast.success(result.passed ? "Bạn đã vượt qua bài tập." : "Đã nộp bài. Hãy xem lại đáp án và thử lại.");
@@ -358,9 +331,7 @@ export default function LearnCoursePage() {
       const exercise = res.data?.exercise;
       const quota = res.data?.quota;
 
-      if (!exercise) {
-        throw new Error("Không nhận được bài tập AI.");
-      }
+      if (!exercise) throw new Error("Không nhận được bài tập AI.");
 
       if (quota) setAiExerciseQuota(quota);
       setLessonExercises((current) => [exercise, ...current]);
@@ -373,38 +344,25 @@ export default function LearnCoursePage() {
       );
     } catch (error) {
       const apiError = error as {
-        response?: {
-          data?: {
-            message?: string;
-            data?: { quota?: AiExerciseQuota };
-          };
-        };
+        response?: { data?: { message?: string; data?: { quota?: AiExerciseQuota } } };
         message?: string;
       };
       const quota = apiError.response?.data?.data?.quota;
       if (quota) setAiExerciseQuota(quota);
-      toast.error(
-        apiError.response?.data?.message ||
-          apiError.message ||
-          "Không thể tạo bài tập AI. Vui lòng thử lại.",
-      );
+      toast.error(apiError.response?.data?.message || apiError.message || "Không thể tạo bài tập AI. Vui lòng thử lại.");
     } finally {
       setIsGeneratingAIExercise(false);
     }
   };
 
   const handleMarkComplete = async () => {
-    if (!course || !activeLesson || isCompletePending) return;
-    if (isLessonCompleted(activeLesson._id)) return;
+    if (!course || !activeLesson || isCompletePending || isLessonCompleted(activeLesson._id)) return;
 
     startCompleteTransition(async () => {
       try {
         const res = await completeLessonAction(course._id, activeLesson._id, course.slug);
         const next = res.data?.progress;
-
-        if (!next) {
-          throw new Error("Progress update failed");
-        }
+        if (!next) throw new Error("Progress update failed");
 
         setProgress({
           progress: next.progress,
@@ -444,26 +402,24 @@ export default function LearnCoursePage() {
   }
 
   return (
-    <>
-    <div className="grid gap-6 lg:grid-cols-12">
-      <Card className="lg:col-span-4">
-        <CardHeader>
-          <CardTitle className="line-clamp-2">{course.title}</CardTitle>
-          <div className="mt-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Tiến độ</span>
-              <span className="font-medium text-foreground">{progress.progress}%</span>
-            </div>
-            <Progress value={progress.progress} className="mt-2 h-2" />
+    <div className="grid min-h-[calc(100vh-250px)] gap-5 xl:grid-cols-[minmax(300px,0.44fr)_minmax(0,1fr)]">
+      <aside className="rounded-lg border border-border/80 bg-white p-4 shadow-card">
+        <div className="mb-5">
+          <h2 className="line-clamp-2 text-lg font-bold text-foreground">{course.title}</h2>
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Tiến độ</span>
+            <span className="font-semibold text-foreground">{progress.progress}%</span>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          <Progress value={progress.progress} className="mt-2" size="sm" />
+        </div>
+
+        <div className="space-y-3">
           {(course.chapters ?? []).map((chapter) => (
-            <div key={chapter._id} className="rounded-lg border border-border">
-              <div className="border-b border-border px-3 py-2">
-                <p className="font-medium text-foreground">{chapter.title}</p>
+            <section key={chapter._id} className="overflow-hidden rounded-lg border border-border bg-white">
+              <div className="border-b border-border/80 px-4 py-3">
+                <h3 className="line-clamp-1 text-sm font-semibold text-foreground">{chapter.title}</h3>
               </div>
-              <div className="p-2">
+              <div className="space-y-1 p-2">
                 {(chapter.lessons ?? []).map((lesson) => {
                   const isActive = lesson._id === activeLessonId;
                   const completed = isLessonCompleted(lesson._id);
@@ -472,353 +428,318 @@ export default function LearnCoursePage() {
                   return (
                     <button
                       key={lesson._id}
+                      type="button"
                       className={cn(
-                        "w-full rounded-lg px-3 py-2 text-left transition-colors",
-                        isActive ? "bg-primary-50 text-primary-700" : "hover:bg-surface"
+                        "w-full rounded-lg px-3 py-2.5 text-left transition-colors",
+                        isActive ? "bg-primary-50 text-primary-700" : "text-foreground hover:bg-surface",
+                        !canAccess && "cursor-not-allowed opacity-60",
                       )}
-                      onClick={() => setActiveLessonId(lesson._id)}
+                      onClick={() => canAccess && setActiveLessonId(lesson._id)}
                       disabled={!canAccess}
                     >
                       <div className="flex items-center gap-2">
                         {lesson.type === "video" || lesson.videoUrl ? (
-                          <Play className="h-4 w-4 text-muted-foreground" />
+                          <Play className="h-4 w-4 shrink-0 text-muted-foreground" />
                         ) : (
-                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                         )}
-                        <span className="flex-1 text-sm font-medium">{lesson.title}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{lesson.title}</span>
                         {completed ? (
-                          <CheckCircle className="h-4 w-4 text-success" />
+                          <CheckCircle className="h-4 w-4 shrink-0 text-success" />
                         ) : !canAccess ? (
-                          <Lock className="h-4 w-4 text-muted-foreground" />
+                          <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
                         ) : null}
                       </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="secondary" size="sm">
-                          {lessonTypeLabel(lesson)}
-                        </Badge>
-                        {!canAccess && <span>Khóa</span>}
-                      </div>
+                      <Badge variant="secondary" size="sm" className="mt-2">
+                        {lessonTypeLabel(lesson)}
+                      </Badge>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </section>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </aside>
 
-      <Card className="lg:col-span-8">
-        <CardHeader>
-          <CardTitle>{activeLesson?.title ?? "Chọn bài học"}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!activeLesson ? (
-            <p className="text-muted-foreground">Vui lòng chọn một bài học ở danh sách bên trái.</p>
-          ) : !canAccessLesson(activeLesson) ? (
-            <div className="rounded-lg border border-border p-6 text-center">
-              <Lock className="mx-auto h-10 w-10 text-muted-foreground" />
-              <p className="mt-3 font-medium text-foreground">Bài học này đang bị khóa</p>
-              <p className="mt-1 text-sm text-muted-foreground">Bạn cần mua khóa học để truy cập.</p>
-            </div>
-          ) : activeLesson.videoUrl ? (
-            <div className="overflow-hidden rounded-xl border border-border">
-              {activeLessonEmbedUrl ? (
-                <iframe
-                  src={activeLessonEmbedUrl}
-                  title={activeLesson.title}
-                  className="aspect-video w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <video src={activeLesson.videoUrl} controls className="w-full" />
-              )}
-            </div>
-          ) : (activeLesson.type === "pdf" || activeLesson.type === "document") && (activeLesson.documentUrl || activeLesson.pdfUrl) ? (
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-sm text-muted-foreground">
-                Tài liệu này không thể xem trực tiếp trong trang.
-              </p>
-              <Button asChild variant="outline" className="mt-3">
-                <a
-                  href={activeLesson.documentUrl || activeLesson.pdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  download
-                >
-                  Mở tài liệu
-                </a>
-              </Button>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border p-4">
-              <p className="whitespace-pre-wrap text-foreground">{activeLesson.content || "(Chưa có nội dung)"}</p>
-            </div>
-          )}
-
-          {activeLesson && canAccessLesson(activeLesson) && activeLessonDocumentUrl ? (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/50 p-4">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <FileText className="h-5 w-5 shrink-0 text-primary-600" />
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground">Tài liệu bài học</p>
-                  <p className="truncate text-sm text-muted-foreground">{activeLessonDocumentUrl}</p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                leftIcon={<FileText className="h-4 w-4" />}
-                onClick={() => {
-                  const link = document.createElement("a");
-                  link.href = activeLessonDocumentUrl;
-                  link.target = "_blank";
-                  link.rel = "noreferrer";
-                  link.download = "";
-                  link.click();
-                }}
-              >
-                Tải tài liệu
-              </Button>
-            </div>
-          ) : null}
-
-          {activeLesson && canAccessLesson(activeLesson) && (
-            <div className="rounded-xl border border-border bg-surface/50 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <ClipboardList className="h-5 w-5 text-primary-600" />
-                    <h2 className="font-semibold text-foreground">Bài tập của bài học</h2>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Làm bài tập để kiểm tra mức độ hiểu bài trước khi chuyển sang nội dung tiếp theo.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {aiExerciseQuota ? (
-                    <Badge variant="outline">
-                      AI: {aiExerciseQuota.remaining}/{aiExerciseQuota.limit} lượt
-                    </Badge>
-                  ) : null}
-                  {canGenerateAIExercise ? (
-                    <Button
-                      variant="outline"
-                      onClick={handleGenerateAIExercise}
-                      isLoading={isGeneratingAIExercise}
-                      disabled={isLoadingExercises || isGeneratingAIExercise}
-                      leftIcon={<Sparkles className="h-4 w-4" />}
-                    >
-                      Tạo bằng AI
-                    </Button>
-                  ) : null}
-                  <Badge variant="primary-light">{lessonExercises.length} bài tập</Badge>
-                </div>
-              </div>
-
-              {isLoadingExercises ? (
-                <div className="mt-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  Đang tải bài tập...
-                </div>
-              ) : exerciseError ? (
-                <div className="mt-4 rounded-lg border border-error/30 bg-error-light p-4 text-sm text-red-800">
-                  {exerciseError}
-                </div>
-              ) : lessonExercises.length === 0 ? (
-                <div className="mt-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  Bài học này chưa có bài tập nào.
-                </div>
-              ) : (
-                <div className="mt-4 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-                  <div className="space-y-2">
-                    {lessonExercises.map((exercise, index) => {
-                      const result = exerciseResults[exercise._id];
-                      const isSelected = exercise._id === selectedExerciseId;
-
-                      return (
-                        <button
-                          key={exercise._id}
-                          type="button"
-                          onClick={() => setSelectedExerciseId(exercise._id)}
-                          className={cn(
-                            "w-full rounded-lg border px-3 py-2 text-left transition",
-                            isSelected
-                              ? "border-primary-300 bg-primary-50 text-primary-800"
-                              : "border-border bg-background hover:border-primary-200 hover:bg-surface"
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold">Bài {index + 1}</span>
-                            {result ? (
-                              result.passed ? (
-                                <CheckCircle className="h-4 w-4 text-success" />
-                              ) : (
-                                <XCircle className="h-4 w-4 text-error" />
-                              )
-                            ) : null}
-                          </div>
-                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{exercise.title}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {selectedExercise && (
-                    <div className="rounded-lg border border-border bg-background p-4">
-                      <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold text-foreground">{selectedExercise.title}</h3>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <Badge variant="secondary-light">{exerciseTypeLabel(selectedExercise)}</Badge>
-                            <Badge variant="outline">{selectedExercise.questions.length} câu</Badge>
-                            <Badge variant="outline">Đạt {selectedExercise.passingScore ?? 60}%</Badge>
-                            {selectedExercise.timeLimit ? (
-                              <Badge variant="outline">{selectedExercise.timeLimit} phút</Badge>
-                            ) : null}
-                          </div>
-                        </div>
-                        {exerciseResults[selectedExercise._id] && (
-                          <div className="rounded-lg bg-surface px-3 py-2 text-sm">
-                            <span className="text-muted-foreground">Điểm</span>{" "}
-                            <span className="font-semibold text-foreground">{exerciseResults[selectedExercise._id].score}%</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-4 space-y-4">
-                        {selectedExercise.questions.map((question, questionIndex) => {
-                          const answer = getExerciseAnswer(selectedExercise._id, questionIndex);
-                          const resultQuestion = exerciseResults[selectedExercise._id]?.questions?.[questionIndex];
-
-                          return (
-                            <div key={`${selectedExercise._id}-${questionIndex}`} className="rounded-lg border border-border p-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-semibold text-muted-foreground">Câu {questionIndex + 1}</p>
-                                  <p className="mt-1 whitespace-pre-wrap font-medium text-foreground">{question.questionText}</p>
-                                </div>
-                                {resultQuestion ? (
-                                  resultQuestion.isCorrect ? (
-                                    <CheckCircle className="h-5 w-5 shrink-0 text-success" />
-                                  ) : (
-                                    <XCircle className="h-5 w-5 shrink-0 text-error" />
-                                  )
-                                ) : null}
-                              </div>
-
-                              {selectedExercise.type === "fill-blank" || selectedExercise.type === "short-answer" ? (
-                                <input
-                                  value={typeof answer === "string" ? answer : ""}
-                                  onChange={(event) => updateExerciseAnswer(selectedExercise._id, questionIndex, event.target.value)}
-                                  disabled={Boolean(exerciseResults[selectedExercise._id])}
-                                  className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                                  placeholder={selectedExercise.type === "fill-blank" ? "Nhập đáp án" : "Nhập câu trả lời ngắn"}
-                                />
-                              ) : (
-                                <div className="mt-3 space-y-2">
-                                  {(question.options ?? []).map((option) => {
-                                    const isMultiple = selectedExercise.type === "multiple-choice";
-                                    const checked = isMultiple
-                                      ? Array.isArray(answer) && answer.includes(option)
-                                      : answer === option;
-
-                                    return (
-                                      <label
-                                        key={option}
-                                        className={cn(
-                                          "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm transition",
-                                          checked ? "border-primary-300 bg-primary-50" : "border-border bg-background hover:bg-surface",
-                                          exerciseResults[selectedExercise._id] && "cursor-default"
-                                        )}
-                                      >
-                                        <input
-                                          type={isMultiple ? "checkbox" : "radio"}
-                                          name={`${selectedExercise._id}-${questionIndex}`}
-                                          checked={checked}
-                                          disabled={Boolean(exerciseResults[selectedExercise._id])}
-                                          onChange={() => {
-                                            if (isMultiple) {
-                                              toggleExerciseOption(selectedExercise._id, questionIndex, option);
-                                            } else {
-                                              updateExerciseAnswer(selectedExercise._id, questionIndex, option);
-                                            }
-                                          }}
-                                        />
-                                        <span className="text-foreground">{option}</span>
-                                      </label>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {resultQuestion && (
-                                <div className="mt-3 rounded-lg bg-surface p-3 text-sm">
-                                  <p className="font-medium text-foreground">
-                                    Đáp án đúng: {resultQuestion.correctAnswers.join(", ")}
-                                  </p>
-                                  {resultQuestion.explanation ? (
-                                    <p className="mt-1 text-muted-foreground">{resultQuestion.explanation}</p>
-                                  ) : null}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        {exerciseResults[selectedExercise._id] ? (
-                          <Button
-                            variant="outline"
-                            onClick={() => handleResetExercise(selectedExercise._id)}
-                            leftIcon={<RotateCcw className="h-4 w-4" />}
-                          >
-                            Làm lại
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={() => handleSubmitExercise(selectedExercise)}
-                            isLoading={submittingExerciseId === selectedExercise._id}
-                            disabled={!isExerciseReadyToSubmit(selectedExercise)}
-                            leftIcon={<Send className="h-4 w-4" />}
-                          >
-                            Nộp bài
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeLesson && canAccessLesson(activeLesson) && (
+      <main className="min-w-0 space-y-4 rounded-lg border border-border/80 bg-white p-4 shadow-card">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="line-clamp-2 text-lg font-bold text-foreground">{activeLesson?.title ?? "Chọn bài học"}</h2>
+          {activeLesson && canAccessLesson(activeLesson) ? (
             <Button
               onClick={handleMarkComplete}
               leftIcon={<CheckCircle className="h-4 w-4" />}
               disabled={isLessonCompleted(activeLesson._id)}
+              isLoading={isCompletePending}
+              size="sm"
             >
-              {isLessonCompleted(activeLesson._id) ? "Đã hoàn thành" : "Đánh dấu hoàn thành"}
+              {isLessonCompleted(activeLesson._id) ? "Đã hoàn thành" : "Hoàn thành"}
             </Button>
-          )}
-        </CardContent>
-      </Card>
+          ) : null}
+        </div>
+
+        {!activeLesson ? (
+          <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+            Vui lòng chọn một bài học ở danh sách bên trái.
+          </div>
+        ) : !canAccessLesson(activeLesson) ? (
+          <div className="rounded-lg border border-border p-10 text-center">
+            <Lock className="mx-auto h-10 w-10 text-muted-foreground" />
+            <p className="mt-3 font-semibold text-foreground">Bài học này đang bị khóa</p>
+            <p className="mt-1 text-sm text-muted-foreground">Bạn cần mua khóa học để truy cập.</p>
+          </div>
+        ) : activeLesson.videoUrl ? (
+          <div className="overflow-hidden rounded-lg border border-border bg-slate-950">
+            {activeLessonEmbedUrl ? (
+              <iframe
+                src={activeLessonEmbedUrl}
+                title={activeLesson.title}
+                className="aspect-video w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <video src={activeLesson.videoUrl} controls className="aspect-video w-full bg-black object-contain" />
+            )}
+          </div>
+        ) : activeLessonDocumentUrl && canEmbedDocument(activeLessonDocumentUrl) ? (
+          <iframe
+            src={activeLessonDocumentUrl}
+            title={activeLesson.title}
+            className="h-[620px] w-full rounded-lg border border-border bg-white"
+          />
+        ) : (
+          <div className="min-h-[320px] rounded-lg border border-border bg-surface/40 p-5">
+            <p className="whitespace-pre-wrap text-sm leading-7 text-foreground">
+              {activeLesson.content || "Chưa có nội dung"}
+            </p>
+          </div>
+        )}
+
+        {activeLessonDocumentUrl ? (
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface/45 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <FileText className="h-5 w-5 shrink-0 text-primary-600" />
+              <div className="min-w-0">
+                <p className="font-semibold text-foreground">Tài liệu bài học</p>
+                <p className="truncate text-sm text-muted-foreground">{activeLessonDocumentUrl}</p>
+              </div>
+            </div>
+            <Button asChild variant="outline" size="sm" leftIcon={<FileText className="h-4 w-4" />}>
+              <a href={activeLessonDocumentUrl} target="_blank" rel="noreferrer">
+                Xem tài liệu
+              </a>
+            </Button>
+          </div>
+        ) : null}
+
+        {activeLesson && canAccessLesson(activeLesson) ? (
+          <section className="rounded-lg border border-border bg-surface/45 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-primary-600" />
+                  <h3 className="font-semibold text-foreground">Bài tập của bài học</h3>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Làm bài tập để kiểm tra mức độ hiểu bài trước khi chuyển sang nội dung tiếp theo.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {aiExerciseQuota ? (
+                  <Badge variant="outline">AI: {aiExerciseQuota.remaining}/{aiExerciseQuota.limit} lượt</Badge>
+                ) : null}
+                {canGenerateAIExercise ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateAIExercise}
+                    isLoading={isGeneratingAIExercise}
+                    disabled={isLoadingExercises || isGeneratingAIExercise}
+                    leftIcon={<Sparkles className="h-4 w-4" />}
+                  >
+                    Tạo bằng AI
+                  </Button>
+                ) : null}
+                <Badge variant="primary-light">{lessonExercises.length} bài tập</Badge>
+              </div>
+            </div>
+
+            {isLoadingExercises ? (
+              <div className="mt-4 rounded-lg border border-dashed border-border bg-white p-6 text-center text-sm text-muted-foreground">
+                Đang tải bài tập...
+              </div>
+            ) : exerciseError ? (
+              <div className="mt-4 rounded-lg border border-error/30 bg-error-light p-4 text-sm text-red-800">
+                {exerciseError}
+              </div>
+            ) : lessonExercises.length === 0 ? (
+              <div className="mt-4 rounded-lg border border-dashed border-border bg-white p-6 text-center text-sm text-muted-foreground">
+                Bài học này chưa có bài tập nào.
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-4 xl:grid-cols-[230px_minmax(0,1fr)]">
+                <div className="space-y-2">
+                  {lessonExercises.map((exercise, index) => {
+                    const result = exerciseResults[exercise._id];
+                    const isSelected = exercise._id === selectedExerciseId;
+
+                    return (
+                      <button
+                        key={exercise._id}
+                        type="button"
+                        onClick={() => setSelectedExerciseId(exercise._id)}
+                        className={cn(
+                          "w-full rounded-lg border px-3 py-2.5 text-left transition",
+                          isSelected
+                            ? "border-primary-300 bg-primary-50 text-primary-800"
+                            : "border-border bg-white hover:border-primary-200 hover:bg-surface",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">Bài {index + 1}</span>
+                          {result ? (
+                            result.passed ? (
+                              <CheckCircle className="h-4 w-4 text-success" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-error" />
+                            )
+                          ) : null}
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{exercise.title}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedExercise ? (
+                  <div className="rounded-lg border border-border bg-white p-4">
+                    <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h4 className="text-base font-semibold text-foreground">{selectedExercise.title}</h4>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge variant="secondary-light">{exerciseTypeLabel(selectedExercise)}</Badge>
+                          <Badge variant="outline">{selectedExercise.questions.length} câu</Badge>
+                          <Badge variant="outline">Đạt {selectedExercise.passingScore ?? 60}%</Badge>
+                          {selectedExercise.timeLimit ? <Badge variant="outline">{selectedExercise.timeLimit} phút</Badge> : null}
+                        </div>
+                      </div>
+                      {exerciseResults[selectedExercise._id] ? (
+                        <div className="rounded-lg bg-surface px-3 py-2 text-sm">
+                          <span className="text-muted-foreground">Điểm</span>{" "}
+                          <span className="font-semibold text-foreground">{exerciseResults[selectedExercise._id].score}%</span>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-4 space-y-4">
+                      {selectedExercise.questions.map((question, questionIndex) => {
+                        const answer = getExerciseAnswer(selectedExercise._id, questionIndex);
+                        const resultQuestion = exerciseResults[selectedExercise._id]?.questions?.[questionIndex];
+
+                        return (
+                          <div key={`${selectedExercise._id}-${questionIndex}`} className="rounded-lg border border-border p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-muted-foreground">Câu {questionIndex + 1}</p>
+                                <p className="mt-1 whitespace-pre-wrap font-medium text-foreground">{question.questionText}</p>
+                              </div>
+                              {resultQuestion ? (
+                                resultQuestion.isCorrect ? (
+                                  <CheckCircle className="h-5 w-5 shrink-0 text-success" />
+                                ) : (
+                                  <XCircle className="h-5 w-5 shrink-0 text-error" />
+                                )
+                              ) : null}
+                            </div>
+
+                            {selectedExercise.type === "fill-blank" || selectedExercise.type === "short-answer" ? (
+                              <input
+                                value={typeof answer === "string" ? answer : ""}
+                                onChange={(event) => updateExerciseAnswer(selectedExercise._id, questionIndex, event.target.value)}
+                                disabled={Boolean(exerciseResults[selectedExercise._id])}
+                                className="mt-3 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                                placeholder={selectedExercise.type === "fill-blank" ? "Nhập đáp án" : "Nhập câu trả lời ngắn"}
+                              />
+                            ) : (
+                              <div className="mt-3 space-y-2">
+                                {(question.options ?? []).map((option) => {
+                                  const isMultiple = selectedExercise.type === "multiple-choice";
+                                  const checked = isMultiple
+                                    ? Array.isArray(answer) && answer.includes(option)
+                                    : answer === option;
+
+                                  return (
+                                    <label
+                                      key={option}
+                                      className={cn(
+                                        "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm transition",
+                                        checked ? "border-primary-300 bg-primary-50" : "border-border bg-white hover:bg-surface",
+                                        exerciseResults[selectedExercise._id] && "cursor-default",
+                                      )}
+                                    >
+                                      <input
+                                        type={isMultiple ? "checkbox" : "radio"}
+                                        name={`${selectedExercise._id}-${questionIndex}`}
+                                        checked={checked}
+                                        disabled={Boolean(exerciseResults[selectedExercise._id])}
+                                        onChange={() => {
+                                          if (isMultiple) {
+                                            toggleExerciseOption(selectedExercise._id, questionIndex, option);
+                                          } else {
+                                            updateExerciseAnswer(selectedExercise._id, questionIndex, option);
+                                          }
+                                        }}
+                                      />
+                                      <span className="text-foreground">{option}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {resultQuestion ? (
+                              <div className="mt-3 rounded-lg bg-surface p-3 text-sm">
+                                <p className="font-medium text-foreground">
+                                  Đáp án đúng: {resultQuestion.correctAnswers.join(", ")}
+                                </p>
+                                {resultQuestion.explanation ? (
+                                  <p className="mt-1 text-muted-foreground">{resultQuestion.explanation}</p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {exerciseResults[selectedExercise._id] ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleResetExercise(selectedExercise._id)}
+                          leftIcon={<RotateCcw className="h-4 w-4" />}
+                        >
+                          Làm lại
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleSubmitExercise(selectedExercise)}
+                          isLoading={submittingExerciseId === selectedExercise._id}
+                          disabled={!isExerciseReadyToSubmit(selectedExercise)}
+                          leftIcon={<Send className="h-4 w-4" />}
+                        >
+                          Nộp bài
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </section>
+        ) : null}
+      </main>
     </div>
-    <Modal
-      isOpen={false}
-      onClose={() => undefined}
-      title="Tài liệu bài học"
-      size="full"
-      className="max-w-6xl"
-    >
-      {activeLessonDocumentUrl ? (
-        <iframe
-          src={activeLessonDocumentUrl}
-          title="Tài liệu bài học"
-          className="h-[78vh] w-full rounded-lg border border-border"
-        />
-      ) : null}
-    </Modal>
-    </>
   );
 }

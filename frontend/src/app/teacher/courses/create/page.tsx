@@ -239,7 +239,7 @@ export default function TeacherCreateCoursePage() {
         throw new Error("Không nhận được mã khóa học mới từ server");
       }
 
-      router.push(`/teacher/courses/${createdCourseId}/edit`);
+      router.push(`/teacher/courses/${createdCourseId}/edit?tab=content`);
     } catch (requestError) {
       const axiosError = requestError as AxiosError<{ message?: string }>;
       setError(axiosError.response?.data?.message || axiosError.message || "Không thể tạo khóa học mới");

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MailCheck, RefreshCcw } from "lucide-react";
@@ -10,12 +10,29 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 
+const verificationRequests = new Map<string, Promise<unknown>>();
+
+function verifyEmailToken(token: string) {
+  const existingRequest = verificationRequests.get(token);
+  if (existingRequest) return existingRequest;
+
+  const request = api
+    .get(`/auth/verify-email?token=${encodeURIComponent(token)}`)
+    .finally(() => {
+      verificationRequests.delete(token);
+    });
+
+  verificationRequests.set(token, request);
+  return request;
+}
+
 function VerifyEmailContent() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const emailFromQuery = searchParams.get("email") || "";
+  const hasAutoVerifiedRef = useRef(false);
 
   const [email, setEmail] = useState(emailFromQuery);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,7 +66,7 @@ function VerifyEmailContent() {
     return () => window.clearTimeout(timer);
   }, [resendCooldown]);
 
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     if (!token || isVerifying) return;
 
     setIsVerifying(true);
@@ -57,11 +74,17 @@ function VerifyEmailContent() {
     setMessage("");
 
     try {
-      await api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`);
+      const response = (await verifyEmailToken(token)) as { data?: { data?: { user?: { email?: string } } } };
+      const verifiedUser = response.data?.data?.user;
       setVerified(true);
       setMessage("Email đã được xác minh thành công. Bạn có thể đăng nhập ngay.");
       setTimeout(() => {
-        router.replace("/login");
+        const query = new URLSearchParams({
+          message: "Email đã được xác minh. Vui lòng đăng nhập.",
+        });
+        const verifiedEmail = verifiedUser?.email || emailFromQuery;
+        if (verifiedEmail) query.set("email", verifiedEmail);
+        router.replace(`/login?${query.toString()}`);
       }, 1500);
     } catch (err: unknown) {
       const requestError = err as { response?: { data?: { message?: string; error?: string } } };
@@ -73,7 +96,16 @@ function VerifyEmailContent() {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [emailFromQuery, isVerifying, router, token]);
+
+  useEffect(() => {
+    if (!hasToken || hasAutoVerifiedRef.current) {
+      return;
+    }
+
+    hasAutoVerifiedRef.current = true;
+    handleVerify();
+  }, [handleVerify, hasToken]);
 
   const handleResend = async () => {
     if (!email || isSubmitting || resendCooldown > 0) return;
@@ -129,7 +161,7 @@ function VerifyEmailContent() {
             {hasToken ? (
               <>
                 <Button className="w-full" size="lg" onClick={handleVerify} isLoading={isVerifying || verified}>
-                  {verified ? "Đã xác minh" : "Xác minh ngay"}
+                  {verified ? "Đã xác minh" : isVerifying ? "Đang xác minh..." : "Xác minh ngay"}
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">
                   Nếu liên kết đã hết hạn, bạn có thể yêu cầu gửi lại email xác minh.
