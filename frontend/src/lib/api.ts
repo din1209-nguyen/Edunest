@@ -16,15 +16,24 @@ const api = axios.create({
 let refreshRequestPromise: Promise<void> | null = null;
 let hasForcedLogout = false;
 
+const PROTECTED_PATH_PREFIXES = ["/admin", "/student", "/teacher"];
+
 // Kiểm tra request hiện tại có thuộc nhóm endpoint xác thực cần bỏ qua refresh tự động hay không
 function isAuthLifecycleRequest(config?: InternalAxiosRequestConfig) {
   const url = config?.url || "";
   return [
     "/auth/login",
     "/auth/register",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/verify-email",
     "/auth/refresh",
     "/auth/logout",
   ].some((path) => url.includes(path));
+}
+
+function isProtectedPath(pathname: string) {
+  return PROTECTED_PATH_PREFIXES.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
 // Đăng xuất cưỡng bức đúng một lần khi refresh token không còn hợp lệ
@@ -33,7 +42,7 @@ async function forceLogoutOnce() {
   hasForcedLogout = true;
 
   await useAuthStore.getState().logout();
-  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+  if (typeof window !== "undefined" && isProtectedPath(window.location.pathname)) {
     window.location.href = "/login";
   }
 }
