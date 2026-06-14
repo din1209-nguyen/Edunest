@@ -12,6 +12,8 @@
 **Edunest** là nền tảng học tiếng Anh trực tuyến theo mô hình MOOC, clone từ Udemy.
 Hệ thống hiện dùng 2 vai trò phân quyền chính: **Người dùng (user)** và **Quản trị viên (admin)**. Các khu vực giao diện/nghiệp vụ cũ vẫn có thể còn nhãn `teacher`/`student`, nhưng không còn là role RBAC chuẩn của hệ thống.
 
+> **Về kiến trúc:** Dự án được tách thành hai tiến trình độc lập — `frontend` (Next.js App Router, render UI + Server Actions) và `backend` (Express, REST API + Socket.IO). Giao tiếp qua HTTP/HTTPS và JWT, dữ liệu persistent nằm trong MongoDB, cache/queue dùng Redis. Việc tách này giúp scale từng phần riêng biệt và deploy lên Vercel/Render độc lập.
+
 [Demo](#-demo) · [Tính năng](#-tính-năng) · [Kiến trúc](#-kiến-trúc) · [Cài đặt](#-cài-đặt) · [API Docs](#-api-documentation)
 
 </div>
@@ -25,6 +27,8 @@ Hệ thống hiện dùng 2 vai trò phân quyền chính: **Người dùng (use
 > **Backend (Render):** `https://your-backend.onrender.com`
 
 > **API Docs:** `https://your-backend.onrender.com/api-docs`
+
+> **Lưu ý:** Hai URL trên là placeholder minh hoạ. Khi clone về chạy local theo mục [Cài đặt](#-cài-đặt), frontend mặc định truy cập `http://localhost:3001` và backend ở `http://localhost:5000`; tài khoản demo có sẵn trong bảng phía dưới để bạn thử đầy đủ luồng học/mua/đánh giá mà không cần đăng ký.
 
 
 ---
