@@ -202,8 +202,8 @@ function createFormFromCourse(course: Course): CourseEditorForm {
     shortDescription: (course as Course & { shortDescription?: string }).shortDescription || "",
     thumbnail: course.thumbnail || "",
     previewVideo: course.previewVideo || "",
-    price: String(course.estimatedPrice ?? course.price ?? 0),
-    discountPrice: String(course.price ?? 0),
+    price: String(course.pendingPrice ?? course.estimatedPrice ?? course.price ?? 0),
+    discountPrice: String(course.pendingDiscountPrice ?? course.price ?? 0),
     category: typeof course.category === "string" ? course.category : course.category?.name || "",
     level: course.level || "beginner",
     language: (course as Course & { language?: string }).language || "English",
@@ -437,7 +437,6 @@ export default function TeacherCourseEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [isAutosaving, setIsAutosaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [loadingCurriculum, setLoadingCurriculum] = useState(false);
@@ -467,7 +466,6 @@ export default function TeacherCourseEditPage() {
   const [editingExerciseIds, setEditingExerciseIds] = useState<Record<string, boolean>>({});
   const [collapsedChapterIds, setCollapsedChapterIds] = useState<Record<string, boolean>>({});
   const [collapsedLessonIds, setCollapsedLessonIds] = useState<Record<string, boolean>>({});
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isBootstrappingFormRef = useRef(true);
 
   useEffect(() => {
@@ -1138,16 +1136,12 @@ export default function TeacherCourseEditPage() {
     };
   };
 
-  const handleSave = async (options?: { silent?: boolean }) => {
+  const handleSave = async () => {
     const payload = buildPayload();
     if (!payload || !course) return;
 
     try {
-      if (options?.silent) {
-        setIsAutosaving(true);
-      } else {
-        setSaving(true);
-      }
+      setSaving(true);
       setError("");
       const response = await teacherCourseApi.updateCourse(course._id, payload);
       const normalized = normalizeCourse(response.data as Course);
@@ -1156,26 +1150,23 @@ export default function TeacherCourseEditPage() {
       setIsDirty(false);
       setLastSavedAt(new Date().toISOString());
       isBootstrappingFormRef.current = true;
-      if (!options?.silent) {
-        setSuccessMessage("Đã lưu bản nháp thành công.");
-      }
+      setSuccessMessage("Đã lưu thay đổi thành công.");
     } catch (requestError) {
       const axiosError = requestError as AxiosError<{ message?: string }>;
       setError(axiosError.response?.data?.message || axiosError.message || "Không thể lưu khóa học");
     } finally {
       setSaving(false);
-      setIsAutosaving(false);
     }
   };
 
   const handleSubmitReview = async () => {
     if (!course) return;
+    if (isDirty) {
+      setError("Vui lòng bấm lưu thay đổi trước khi gửi duyệt.");
+      return;
+    }
 
     try {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
       setSubmittingReview(true);
       setError("");
       const response = await teacherCourseApi.publishCourse(course._id);
@@ -1555,25 +1546,6 @@ export default function TeacherCourseEditPage() {
     setPendingDelete(null);
   };
 
-  useEffect(() => {
-    if (!isDirty || !form || loading || saving || isAutosaving || submittingReview) return;
-
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-
-    autoSaveTimerRef.current = setTimeout(() => {
-      void handleSave({ silent: true });
-    }, 1500);
-
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
-    };
-  }, [form, isDirty, loading, saving, isAutosaving, submittingReview]);
-
   const deleteLoading =
     pendingDelete?.kind === "chapter"
       ? chapterDeletingKey === pendingDelete.chapterId
@@ -1610,6 +1582,11 @@ export default function TeacherCourseEditPage() {
 
   const currentStatus = statusMeta[course.status] || statusMeta.draft;
   const canOpenPublicPage = course.status === "published" && Boolean(course.slug);
+  const isPublishedRevision = course.status === "published" || (course.status === "pending" && Boolean(course.reviewedAt));
+  const lockApprovedContent = isPublishedRevision;
+  const canEditCourseInfo = !isPublishedRevision;
+  const isPendingContent = (record?: { contentStatus?: "approved" | "pending" }) => record?.contentStatus === "pending";
+  const isLockedApprovedContent = (record?: { contentStatus?: "approved" | "pending" }) => lockApprovedContent && !isPendingContent(record);
 
   return (
     <div className="content-stack">
@@ -2306,7 +2283,7 @@ export default function TeacherCourseEditPage() {
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Badge variant={currentStatus.badge}>{currentStatus.label}</Badge>
               <Badge variant={isDirty ? "warning" : "success"}>
-                {isAutosaving ? "Đang tự lưu..." : isDirty ? "Có thay đổi chưa lưu" : "Đã lưu"}
+                {isDirty ? "Có thay đổi chưa lưu" : "Đã lưu"}
               </Badge>
               {lastSavedAt && !isDirty && (
                 <span>Lần lưu gần nhất: {new Date(lastSavedAt).toLocaleTimeString("vi-VN")}</span>
@@ -2335,7 +2312,7 @@ export default function TeacherCourseEditPage() {
               leftIcon={<Send className="h-4 w-4" />}
               isLoading={submittingReview}
               onClick={handleSubmitReview}
-              disabled={course.status === "pending" || course.status === "published" || !readiness.canSubmit}
+              disabled={course.status === "pending" || !readiness.canSubmit}
             >
               Gửi duyệt
             </Button>
@@ -2381,17 +2358,17 @@ export default function TeacherCourseEditPage() {
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
-                <Input label="Tiêu đề khóa học" value={form.title} onChange={(event) => updateForm("title", event.target.value)} />
+                <Input label="Tiêu đề khóa học" value={form.title} onChange={(event) => updateForm("title", event.target.value)} disabled={!canEditCourseInfo} />
               </div>
               <div className="md:col-span-2">
-                <Textarea label="Mô tả chi tiết" value={form.description} onChange={(event) => updateForm("description", event.target.value)} />
+                <Textarea label="Mô tả chi tiết" value={form.description} onChange={(event) => updateForm("description", event.target.value)} disabled={!canEditCourseInfo} />
               </div>
               <div className="md:col-span-2">
-                <Textarea label="Mô tả ngắn" value={form.shortDescription} onChange={(event) => updateForm("shortDescription", event.target.value)} />
+                <Textarea label="Mô tả ngắn" value={form.shortDescription} onChange={(event) => updateForm("shortDescription", event.target.value)} disabled={!canEditCourseInfo} />
               </div>
-              <Input label="Danh mục" value={form.category} onChange={(event) => updateForm("category", event.target.value)} />
-              <Select label="Trình độ" options={levelOptions} value={form.level} onChange={(value) => updateForm("level", value as CourseLevel)} />
-              <Select label="Ngôn ngữ" options={languageOptions} value={form.language} onChange={(value) => updateForm("language", value)} />
+              <Input label="Danh mục" value={form.category} onChange={(event) => updateForm("category", event.target.value)} disabled={!canEditCourseInfo} />
+              <Select label="Trình độ" options={levelOptions} value={form.level} onChange={(value) => updateForm("level", value as CourseLevel)} disabled={!canEditCourseInfo} />
+              <Select label="Ngôn ngữ" options={languageOptions} value={form.language} onChange={(value) => updateForm("language", value)} disabled={!canEditCourseInfo} />
               <div className="grid gap-4 sm:grid-cols-2 md:col-span-2">
                 <Input label="Giá gốc" type="number" min={0} value={form.price} onChange={(event) => updateForm("price", event.target.value)} />
                 <Input label="Giá bán hiện tại" type="number" min={0} value={form.discountPrice} onChange={(event) => updateForm("discountPrice", event.target.value)} />
@@ -2409,21 +2386,23 @@ export default function TeacherCourseEditPage() {
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Input label="Thumbnail URL" value={form.thumbnail} onChange={(event) => updateForm("thumbnail", event.target.value)} />
+                <Input label="Thumbnail URL" value={form.thumbnail} onChange={(event) => updateForm("thumbnail", event.target.value)} disabled={!canEditCourseInfo} />
                 <TeacherFileUploadButton
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   label="Upload ảnh bìa"
                   uploadType="thumbnail"
+                  disabled={!canEditCourseInfo}
                   onUploaded={(url) => updateForm("thumbnail", url)}
                   onError={setError}
                 />
               </div>
               <div className="space-y-2">
-                <Input label="Preview video URL" value={form.previewVideo} onChange={(event) => updateForm("previewVideo", event.target.value)} />
+                <Input label="Preview video URL" value={form.previewVideo} onChange={(event) => updateForm("previewVideo", event.target.value)} disabled={!canEditCourseInfo} />
                 <TeacherFileUploadButton
                   accept="video/mp4,video/mpeg,video/webm"
                   label="Upload video giới thiệu"
                   uploadType="video"
+                  disabled={!canEditCourseInfo}
                   onUploaded={(url) => updateForm("previewVideo", url)}
                   onError={setError}
                 />
@@ -2433,6 +2412,7 @@ export default function TeacherCourseEditPage() {
                   type="checkbox"
                   checked={form.isFeatured}
                   onChange={(event) => updateForm("isFeatured", event.target.checked)}
+                  disabled={!canEditCourseInfo}
                   className="h-4 w-4 rounded border-border"
                 />
                 Đánh dấu khóa học nổi bật trong danh sách nội bộ
@@ -2480,8 +2460,8 @@ export default function TeacherCourseEditPage() {
               <CardDescription>Mỗi dòng sẽ tương ứng một bullet hiển thị ở giao diện học viên.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              <Textarea label="Yêu cầu đầu vào" value={form.requirements} onChange={(event) => updateForm("requirements", event.target.value)} />
-              <Textarea label="Kết quả đầu ra" value={form.outcomes} onChange={(event) => updateForm("outcomes", event.target.value)} />
+              <Textarea label="Yêu cầu đầu vào" value={form.requirements} onChange={(event) => updateForm("requirements", event.target.value)} disabled={!canEditCourseInfo} />
+              <Textarea label="Kết quả đầu ra" value={form.outcomes} onChange={(event) => updateForm("outcomes", event.target.value)} disabled={!canEditCourseInfo} />
             </CardContent>
           </Card>
             </>
@@ -2522,6 +2502,7 @@ export default function TeacherCourseEditPage() {
                     <div className="space-y-3">
                       {curriculum.map((chapter, chapterIndex) => {
                         const chapterCollapsed = Boolean(collapsedChapterIds[chapter._id]);
+                        const chapterLocked = isLockedApprovedContent(chapter);
                         return (
                         <div
                           key={chapter._id}
@@ -2531,6 +2512,7 @@ export default function TeacherCourseEditPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="primary-light">Chương {chapterIndex + 1}</Badge>
+                                {isPendingContent(chapter) ? <Badge variant="warning">Chờ duyệt</Badge> : null}
                                 <Badge variant="outline">{chapter.lessons?.length || 0} bài học</Badge>
                                 <Badge variant="secondary-light">{chapterExerciseCounts[chapter._id] || 0} bài tập</Badge>
                               </div>
@@ -2546,7 +2528,7 @@ export default function TeacherCourseEditPage() {
                                 title="Di chuyển chương lên"
                                 aria-label="Di chuyển chương lên"
                                 isLoading={chapterReorderingKey === chapter._id}
-                                disabled={chapterIndex === 0 || Boolean(chapterReorderingKey)}
+                                disabled={chapterLocked || chapterIndex === 0 || Boolean(chapterReorderingKey)}
                                 onClick={() => handleMoveChapter(chapterIndex, "up")}
                               >
                                 <ArrowUp className="h-4 w-4" />
@@ -2557,7 +2539,7 @@ export default function TeacherCourseEditPage() {
                                 title="Di chuyển chương xuống"
                                 aria-label="Di chuyển chương xuống"
                                 isLoading={chapterReorderingKey === chapter._id}
-                                disabled={chapterIndex === curriculum.length - 1 || Boolean(chapterReorderingKey)}
+                                disabled={chapterLocked || chapterIndex === curriculum.length - 1 || Boolean(chapterReorderingKey)}
                                 onClick={() => handleMoveChapter(chapterIndex, "down")}
                               >
                                 <ArrowDown className="h-4 w-4" />
@@ -2581,6 +2563,7 @@ export default function TeacherCourseEditPage() {
                                 size="icon-sm"
                                 title="Sửa chương"
                                 aria-label="Sửa chương"
+                                disabled={chapterLocked}
                                 onClick={() => setActiveOverlay({ kind: "chapter", chapterId: chapter._id })}
                               >
                                 <Pencil className="h-4 w-4" />
@@ -2591,6 +2574,7 @@ export default function TeacherCourseEditPage() {
                                 title="Xóa chương"
                                 aria-label="Xóa chương"
                                 isLoading={chapterDeletingKey === chapter._id}
+                                disabled={chapterLocked}
                                 onClick={() => setPendingDelete({ kind: "chapter", chapterId: chapter._id, title: chapter.title || "chương này" })}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -2608,6 +2592,7 @@ export default function TeacherCourseEditPage() {
                               <Button
                                 variant="outline"
                                 leftIcon={<FilePlus2 className="h-4 w-4" />}
+                                disabled={chapterLocked}
                                 onClick={() => setActiveOverlay({ kind: "createLesson", chapterId: chapter._id })}
                               >
                                 Tạo bài học
@@ -2624,6 +2609,7 @@ export default function TeacherCourseEditPage() {
                                   const lessonExercises = lessonExerciseMap[lesson._id] || [];
                                   const durationLabel = formatLessonDuration(lesson.duration);
                                   const hasDocument = hasLessonDocument(lesson);
+                                  const lessonLocked = isLockedApprovedContent(lesson);
 
                                   return (
                                   <div
@@ -2634,6 +2620,7 @@ export default function TeacherCourseEditPage() {
                                       <div className="min-w-0 flex-1">
                                         <div className="flex min-w-0 flex-wrap items-center gap-2">
                                           <Badge variant="outline">Bài {lessonIndex + 1}</Badge>
+                                          {isPendingContent(lesson) ? <Badge variant="warning">Chờ duyệt</Badge> : null}
                                           <p className="min-w-0 truncate text-sm font-extrabold text-foreground">{lesson.title}</p>
                                         </div>
                                         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -2665,7 +2652,7 @@ export default function TeacherCourseEditPage() {
                                           size="icon-sm"
                                           title="Di chuyển bài học lên"
                                           aria-label="Di chuyển bài học lên"
-                                          disabled={lessonIndex === 0 || Boolean(lessonReorderingKey)}
+                                          disabled={lessonLocked || lessonIndex === 0 || Boolean(lessonReorderingKey)}
                                           isLoading={lessonReorderingKey === lesson._id}
                                           onClick={() => handleMoveLesson(chapter._id, lessonIndex, "up")}
                                         >
@@ -2676,7 +2663,7 @@ export default function TeacherCourseEditPage() {
                                           size="icon-sm"
                                           title="Di chuyển bài học xuống"
                                           aria-label="Di chuyển bài học xuống"
-                                          disabled={lessonIndex === (chapter.lessons?.length || 0) - 1 || Boolean(lessonReorderingKey)}
+                                          disabled={lessonLocked || lessonIndex === (chapter.lessons?.length || 0) - 1 || Boolean(lessonReorderingKey)}
                                           isLoading={lessonReorderingKey === lesson._id}
                                           onClick={() => handleMoveLesson(chapter._id, lessonIndex, "down")}
                                         >
@@ -2701,6 +2688,7 @@ export default function TeacherCourseEditPage() {
                                           size="icon-sm"
                                           title="Sửa bài học"
                                           aria-label="Sửa bài học"
+                                          disabled={lessonLocked}
                                           onClick={() => setActiveOverlay({ kind: "lesson", chapterId: chapter._id, lessonId: lesson._id })}
                                         >
                                           <Pencil className="h-4 w-4" />
@@ -2711,6 +2699,7 @@ export default function TeacherCourseEditPage() {
                                           title="Nhân bản bài học"
                                           aria-label="Nhân bản bài học"
                                           isLoading={lessonSavingKey === `duplicate-${lesson._id}`}
+                                          disabled={lessonLocked}
                                           onClick={() => handleDuplicateLesson(chapter._id, lesson)}
                                         >
                                           <Copy className="h-4 w-4" />
@@ -2721,6 +2710,7 @@ export default function TeacherCourseEditPage() {
                                           title="Xóa bài học"
                                           aria-label="Xóa bài học"
                                           isLoading={lessonDeletingKey === lesson._id}
+                                          disabled={lessonLocked}
                                           onClick={() =>
                                             setPendingDelete({
                                               kind: "lesson",
@@ -2745,6 +2735,7 @@ export default function TeacherCourseEditPage() {
                                           <Button
                                             variant="outline"
                                             leftIcon={<FileQuestion className="h-4 w-4" />}
+                                            disabled={lessonLocked}
                                             onClick={() => setActiveOverlay({ kind: "createExercise", chapterId: chapter._id, lessonId: lesson._id })}
                                           >
                                             Tạo bài tập
@@ -2778,6 +2769,7 @@ export default function TeacherCourseEditPage() {
                                                       size="icon-sm"
                                                       title="Sửa bài tập"
                                                       aria-label="Sửa bài tập"
+                                                      disabled={lessonLocked || isLockedApprovedContent(exercise)}
                                                       onClick={() =>
                                                         setActiveOverlay({
                                                           kind: "exercise",
@@ -2795,6 +2787,7 @@ export default function TeacherCourseEditPage() {
                                                       title="Xóa bài tập"
                                                       aria-label="Xóa bài tập"
                                                       isLoading={exerciseDeletingKey === exercise._id}
+                                                      disabled={lessonLocked || isLockedApprovedContent(exercise)}
                                                       onClick={() =>
                                                         setPendingDelete({
                                                           kind: "exercise",

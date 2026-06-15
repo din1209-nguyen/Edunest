@@ -352,11 +352,96 @@ async function layRecentActivity(options = {}) {
   return { recentUsers, recentCourses, recentEnrollments };
 }
 
+async function duyetKhoaHocV2(courseId, adminId, action, reason = "") {
+  const khoaHoc = await Course.findById(courseId);
+
+  if (!khoaHoc) {
+    const err = new Error("Không tìm thấy khóa học");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (action === "approve") {
+    if (khoaHoc.status !== "pending") {
+      const err = new Error("Chỉ khóa học đang chờ duyệt mới có thể duyệt");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    khoaHoc.status = "published";
+    khoaHoc.rejectionReason = "";
+    khoaHoc.reviewedBy = adminId;
+    khoaHoc.reviewedAt = new Date();
+    if (khoaHoc.pendingPrice !== null && khoaHoc.pendingPrice !== undefined) {
+      khoaHoc.price = khoaHoc.pendingPrice;
+      khoaHoc.pendingPrice = null;
+    }
+    if (khoaHoc.pendingDiscountPrice !== null && khoaHoc.pendingDiscountPrice !== undefined) {
+      khoaHoc.discountPrice = khoaHoc.pendingDiscountPrice;
+      khoaHoc.pendingDiscountPrice = null;
+    }
+    if (khoaHoc.pendingIsFree !== null && khoaHoc.pendingIsFree !== undefined) {
+      khoaHoc.isFree = khoaHoc.pendingIsFree;
+      khoaHoc.pendingIsFree = null;
+    }
+    await khoaHoc.save();
+    await Promise.all([
+      Chapter.updateMany({ course: courseId, contentStatus: "pending" }, { $set: { contentStatus: "approved" } }),
+      Lesson.updateMany({ course: courseId, contentStatus: "pending" }, { $set: { contentStatus: "approved" } }),
+      Exercise.updateMany({ course: courseId, contentStatus: "pending" }, { $set: { contentStatus: "approved" } }),
+    ]);
+    return { message: "Duyệt khóa học thành công", course: khoaHoc };
+  }
+
+  if (action === "reject") {
+    if (khoaHoc.status !== "pending") {
+      const err = new Error("Chỉ khóa học đang chờ duyệt mới có thể từ chối");
+      err.statusCode = 400;
+      throw err;
+    }
+    khoaHoc.status = "rejected";
+    khoaHoc.rejectionReason = reason;
+    khoaHoc.reviewedBy = adminId;
+    khoaHoc.reviewedAt = new Date();
+    await khoaHoc.save();
+    return { message: "Từ chối khóa học thành công", course: khoaHoc };
+  }
+
+  if (action === "ban") {
+    khoaHoc.status = "banned";
+    khoaHoc.rejectionReason = reason;
+    khoaHoc.reviewedBy = adminId;
+    khoaHoc.reviewedAt = new Date();
+    await khoaHoc.save();
+    return { message: "Khóa khóa học thành công", course: khoaHoc };
+  }
+
+  if (action === "unlock") {
+    if (khoaHoc.status === "locked" || khoaHoc.status === "banned") {
+      khoaHoc.status = "draft";
+      khoaHoc.rejectionReason = "";
+      await khoaHoc.save();
+    }
+    return { message: "Mở khóa khóa học thành công", course: khoaHoc };
+  }
+
+  if (action === "lock") {
+    khoaHoc.status = "locked";
+    khoaHoc.rejectionReason = reason;
+    await khoaHoc.save();
+    return { message: "Khóa khóa học thành công", course: khoaHoc };
+  }
+
+  const err = new Error("Hành động không hợp lệ");
+  err.statusCode = 400;
+  throw err;
+}
+
 export {
   layDashboardStats,
   layRecentActivity,
   layKhoaHocChoDuyet,
-  duyetKhoaHoc,
+  duyetKhoaHocV2 as duyetKhoaHoc,
   layDanhSachUser,
   capNhatTrangThaiUser,
   layDanhSachKhoaHoc,

@@ -42,6 +42,20 @@ const courseSchema = new mongoose.Schema(
       min: [0, "Giá giảm không được âm"],
       default: 0,
     },
+    pendingPrice: {
+      type: Number,
+      min: [0, "Giá chờ duyệt không được âm"],
+      default: null,
+    },
+    pendingDiscountPrice: {
+      type: Number,
+      min: [0, "Giá bán chờ duyệt không được âm"],
+      default: null,
+    },
+    pendingIsFree: {
+      type: Boolean,
+      default: null,
+    },
     level: {
       type: String,
       enum: ["beginner", "intermediate", "advanced"],

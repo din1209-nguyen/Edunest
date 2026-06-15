@@ -26,6 +26,11 @@ const chapterSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    contentStatus: {
+      type: String,
+      enum: ["approved", "pending"],
+      default: "approved",
+    },
   },
   {
     timestamps: true,

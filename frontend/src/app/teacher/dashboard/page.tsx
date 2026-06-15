@@ -63,6 +63,18 @@ function unwrapCourses(data: TeacherCourseResponse | undefined): Course[] {
   return data?.courses ?? [];
 }
 
+function getCurrentCoursePrice(course: Course) {
+  return course.discountPrice && course.discountPrice > 0 ? course.discountPrice : course.price;
+}
+
+function getPendingCoursePrice(course: Course) {
+  if (course.pendingDiscountPrice !== null && course.pendingDiscountPrice !== undefined && course.pendingDiscountPrice > 0) {
+    return course.pendingDiscountPrice;
+  }
+
+  return course.pendingPrice ?? null;
+}
+
 function TeacherDashboardLoading() {
   return (
     <div className="content-stack">
@@ -293,7 +305,11 @@ export default function TeacherDashboard() {
           <CardContent className="p-0">
             {data.recentCourses.length > 0 ? (
               <div className="divide-y divide-border">
-                {data.recentCourses.map((course) => (
+                {data.recentCourses.map((course) => {
+                  const currentPrice = getCurrentCoursePrice(course);
+                  const pendingPrice = getPendingCoursePrice(course);
+
+                  return (
                   <div key={course._id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
                     <Link href={`/teacher/courses/${course._id}/edit`} className="relative block h-24 w-full shrink-0 overflow-hidden rounded-lg sm:h-20 sm:w-28">
                       <Image src={course.thumbnail || COURSE_THUMBNAIL_FALLBACK} alt={course.title} fill sizes="64px" className="object-cover" />
@@ -318,8 +334,13 @@ export default function TeacherDashboard() {
                             {(course.rating ?? 0).toFixed(1)}
                           </span>
                         ) : null}
-                        <span className="font-semibold text-primary-600">{formatPrice(course.price)}</span>
+                        <span className="font-semibold text-primary-600">{formatPrice(currentPrice)}</span>
                       </div>
+                      {pendingPrice !== null && pendingPrice !== currentPrice ? (
+                        <p className="mt-1 text-xs font-medium text-warning">
+                          Giá chờ duyệt: {formatPrice(pendingPrice)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       <Link href={`/teacher/courses/${course._id}/edit`}>
@@ -335,7 +356,8 @@ export default function TeacherDashboard() {
                       </Link>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="p-6 text-center">

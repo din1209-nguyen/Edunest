@@ -69,6 +69,9 @@ export interface Course {
   price: number;
   estimatedPrice?: number;
   discountPrice?: number;
+  pendingPrice?: number | null;
+  pendingDiscountPrice?: number | null;
+  pendingIsFree?: boolean | null;
   shortDescription?: string;
   level: CourseLevel;
   status: CourseStatus;
@@ -85,6 +88,7 @@ export interface Course {
   isFeatured?: boolean;
   isBestseller?: boolean;
   isPurchased?: boolean;
+  reviewedAt?: string | null;
   tags?: string[];
   requirements?: string[];
   outcomes?: string[];
@@ -101,6 +105,7 @@ export interface Chapter {
   order: number;
   lessons: Lesson[];
   isFree?: boolean;
+  contentStatus?: "approved" | "pending";
 }
 
 export interface Lesson {
@@ -117,6 +122,7 @@ export interface Lesson {
   order: number;
   isFree?: boolean;
   isPublished?: boolean;
+  contentStatus?: "approved" | "pending";
   exercises?: Exercise[];
 }
 
@@ -145,6 +151,7 @@ export interface Exercise {
   passingScore?: number;
   isPublished?: boolean;
   isAiGenerated?: boolean;
+  contentStatus?: "approved" | "pending";
 }
 
 export interface AiExerciseQuota {
