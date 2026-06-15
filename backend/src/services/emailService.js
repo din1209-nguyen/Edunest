@@ -57,6 +57,7 @@ async function createTransporter() {
 
 async function getTransporter() {
   if (!emailConfig.enabled) return null;
+  if (emailConfig.provider === "brevo-api") return null;
 
   if (!transporterPromise) {
     transporterPromise = createTransporter().catch((error) => {
@@ -68,6 +69,65 @@ async function getTransporter() {
   return transporterPromise;
 }
 
+function parseEmailAddress(value) {
+  const match = String(value || "").match(/^\s*(?:"?([^"<]*)"?)?\s*<([^>]+)>\s*$/);
+  if (match) {
+    return {
+      name: match[1]?.trim() || undefined,
+      email: match[2].trim(),
+    };
+  }
+
+  return {
+    email: String(value || "").trim(),
+  };
+}
+
+async function sendWithBrevoApi({ to, subject, html, text }) {
+  const sender = parseEmailAddress(emailConfig.from);
+  const recipients = String(to)
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean)
+    .map((email) => ({ email }));
+
+  const response = await fetch(emailConfig.brevoApi.endpoint, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "api-key": emailConfig.brevoApi.apiKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      sender,
+      to: recipients,
+      subject,
+      htmlContent: html,
+      ...(text ? { textContent: text } : {}),
+    }),
+  });
+
+  const responseText = await response.text();
+  let payload = null;
+
+  try {
+    payload = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    payload = responseText;
+  }
+
+  if (!response.ok) {
+    const errorMessage =
+      payload?.message || payload?.error || responseText || `Brevo API request failed with status ${response.status}`;
+    const error = new Error(errorMessage);
+    error.statusCode = response.status;
+    error.response = payload;
+    throw error;
+  }
+
+  return payload || { messageId: "brevo-api-sent" };
+}
+
 async function sendEmail({ to, subject, html, text }) {
     if (process.env.NODE_ENV === "test") {
       return { messageId: "test-email-disabled" };
@@ -77,13 +137,19 @@ async function sendEmail({ to, subject, html, text }) {
       const disabledError = new Error(
         emailConfig.provider === "gmail-oauth2"
           ? "Email provider chưa sẵn sàng do thiếu GOOGLE_MAIL_* credentials"
-          : "Email provider chưa sẵn sàng do thiếu SMTP_USER hoặc SMTP_PASS",
+          : emailConfig.provider === "brevo-api"
+            ? "Email provider chưa sẵn sàng do thiếu BREVO_API_KEY"
+            : "Email provider chưa sẵn sàng do thiếu SMTP_USER hoặc SMTP_PASS",
       );
       disabledError.statusCode = 503;
       throw disabledError;
     }
 
   try {
+    if (emailConfig.provider === "brevo-api") {
+      return sendWithBrevoApi({ to, subject, html, text });
+    }
+
     const transport = await getTransporter();
     const result = await transport.sendMail({
       from: emailConfig.from,

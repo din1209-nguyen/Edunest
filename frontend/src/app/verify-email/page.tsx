@@ -124,7 +124,8 @@ function VerifyEmailContent() {
 
       if (deliveryFailed) {
         setError(
-          `Brevo đang hết credit nên email chưa rời hệ thống. Khi nạp lại credit trong vòng 36 giờ, Brevo sẽ tự retry email backlog.`,
+          response.data?.data?.emailDeliveryMessage ||
+            "Server chưa gửi được email xác minh. Vui lòng kiểm tra cấu hình SMTP trên môi trường deploy.",
         );
       }
     } catch (err: unknown) {

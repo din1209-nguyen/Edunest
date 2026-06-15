@@ -14,6 +14,7 @@ const smtpPoolMaxMessages = parseInt(process.env.SMTP_POOL_MAX_MESSAGES || "100"
 const smtpConnectionTimeout = parseInt(process.env.SMTP_CONNECTION_TIMEOUT_MS || "10000", 10);
 const smtpGreetingTimeout = parseInt(process.env.SMTP_GREETING_TIMEOUT_MS || "10000", 10);
 const smtpSocketTimeout = parseInt(process.env.SMTP_SOCKET_TIMEOUT_MS || "20000", 10);
+const brevoApiKeyReady = Boolean(process.env.BREVO_API_KEY);
 
 const gmailOauth2Ready = Boolean(
   process.env.GOOGLE_MAIL_CLIENT_ID &&
@@ -30,12 +31,18 @@ const emailConfig = {
   enabled:
     provider === "gmail-oauth2"
       ? gmailOauth2Ready
+      : provider === "brevo-api"
+        ? brevoApiKeyReady
       : smtpPasswordReady,
   mode:
     provider === "gmail-oauth2"
       ? gmailOauth2Ready
         ? "gmail-oauth2"
         : "disabled"
+      : provider === "brevo-api"
+        ? brevoApiKeyReady
+          ? "brevo-api"
+          : "disabled"
       : smtpPasswordReady
         ? "smtp"
         : "disabled",
@@ -57,6 +64,10 @@ const emailConfig = {
     clientId: process.env.GOOGLE_MAIL_CLIENT_ID,
     clientSecret: process.env.GOOGLE_MAIL_CLIENT_SECRET,
     refreshToken: process.env.GOOGLE_MAIL_REFRESH_TOKEN,
+  },
+  brevoApi: {
+    apiKey: process.env.BREVO_API_KEY,
+    endpoint: process.env.BREVO_API_ENDPOINT || "https://api.brevo.com/v3/smtp/email",
   },
 };
 

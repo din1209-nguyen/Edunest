@@ -65,6 +65,8 @@ services:
       REDIS_URL: ${REDIS_URL}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
       SMTP_FROM: ${SMTP_FROM:-Edunest <no-reply@example.com>}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_API_ENDPOINT: ${BREVO_API_ENDPOINT:-https://api.brevo.com/v3/smtp/email}
       SMTP_HOST: ${SMTP_HOST:-smtp-relay.brevo.com}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
