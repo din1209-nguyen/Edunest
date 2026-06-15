@@ -19,60 +19,139 @@ import Redis from 'ioredis';
 let redisClient = null;
 let redisConnectionPromise = null;
 let isRedisConnected = false;
-let hasLoggedRedisUnavailable = false;
-let hasLoggedRedisClose = false;
+let redisDisabledUntil = 0;
+let lastRedisLogKey = "";
+let lastRedisLogAt = 0;
 
 const isTestEnvironment = process.env.NODE_ENV === 'test' || Boolean(process.env.JEST_WORKER_ID);
+const REDIS_CONNECT_COOLDOWN_MS = parseInt(process.env.REDIS_CONNECT_COOLDOWN_MS || "30000", 10);
+const REDIS_MAX_RECONNECT_ATTEMPTS = parseInt(process.env.REDIS_MAX_RECONNECT_ATTEMPTS || "5", 10);
+const REDIS_LOG_THROTTLE_MS = parseInt(process.env.REDIS_LOG_THROTTLE_MS || "60000", 10);
 
 function shouldLogRedisWarning() {
   return !isTestEnvironment;
 }
 
-// Kiểm tra và chỉ ghi cảnh báo Redis ngoài môi trường test
-function logRedisUnavailableOnce(message) {
-  if (!shouldLogRedisWarning() || hasLoggedRedisUnavailable) {
+function shouldUseRedisTls(protocol) {
+  return protocol === "rediss:" || process.env.REDIS_TLS === "true";
+}
+
+function parseRedisUrl() {
+  const rawUrl = process.env.REDIS_URL?.trim();
+
+  if (!rawUrl) {
+    return {
+      enabled: false,
+      reason: "REDIS_URL not configured",
+    };
+  }
+
+  try {
+    const url = new URL(rawUrl);
+    return {
+      enabled: true,
+      url: rawUrl,
+      protocol: url.protocol.replace(":", ""),
+      host: url.hostname,
+      port: url.port || (shouldUseRedisTls(url.protocol) ? "6380" : "6379"),
+      tls: shouldUseRedisTls(url.protocol),
+    };
+  } catch {
+    return {
+      enabled: false,
+      reason: "REDIS_URL is invalid",
+    };
+  }
+}
+
+function getRedisRuntimeInfo() {
+  const parsed = parseRedisUrl();
+
+  if (!parsed.enabled) {
+    return parsed;
+  }
+
+  return {
+    enabled: true,
+    protocol: parsed.protocol,
+    host: parsed.host,
+    port: parsed.port,
+    tls: parsed.tls,
+    status: redisClient?.status || "not-created",
+    available: isRedisConnected,
+    coolingDown: Date.now() < redisDisabledUntil,
+  };
+}
+
+function markRedisUnavailable(message) {
+  isRedisConnected = false;
+  redisDisabledUntil = Date.now() + REDIS_CONNECT_COOLDOWN_MS;
+
+  if (!shouldLogRedisWarning()) {
+    return;
+  }
+
+  const now = Date.now();
+  if (message === lastRedisLogKey && now - lastRedisLogAt < REDIS_LOG_THROTTLE_MS) {
     return;
   }
 
   console.warn(message);
-  hasLoggedRedisUnavailable = true;
+  lastRedisLogKey = message;
+  lastRedisLogAt = now;
 }
 
 // ─── Redis Client Setup ────────────────────────────────────────────────────────
 
 // Khởi tạo Redis client với chế độ kết nối trì hoãn để không chặn luồng xử lý
-function createRedisClient() {
-  const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-
-  const client = new Redis(redisUrl, {
-    maxRetriesPerRequest: 3,
+function createRedisClient(redisConfig) {
+  const redisOptions = {
+    maxRetriesPerRequest: 1,
     retryDelayOnFailover: 100,
     lazyConnect: true,
     enableOfflineQueue: false,
     connectTimeout: 5000,
-  });
+    retryStrategy(times) {
+      if (times > REDIS_MAX_RECONNECT_ATTEMPTS) {
+        markRedisUnavailable("[Redis] Reconnect attempts exhausted; cache is temporarily disabled");
+        return null;
+      }
+
+      return Math.min(times * 500, 5000);
+    },
+  };
+
+  if (redisConfig.tls) {
+    redisOptions.tls = {};
+  }
+
+  const client = new Redis(redisConfig.url, redisOptions);
 
   client.on('connect', () => {
-    console.log('[Redis] Connected successfully');
+    if (shouldLogRedisWarning() && lastRedisLogKey !== "connect") {
+      console.log('[Redis] Socket connected; waiting for ready state');
+      lastRedisLogKey = "connect";
+      lastRedisLogAt = Date.now();
+    }
+  });
+
+  client.on('ready', () => {
+    if (shouldLogRedisWarning() && lastRedisLogKey !== "ready") {
+      console.log('[Redis] Ready');
+      lastRedisLogKey = "ready";
+      lastRedisLogAt = Date.now();
+    }
+
     isRedisConnected = true;
-    hasLoggedRedisUnavailable = false;
-    hasLoggedRedisClose = false;
+    redisDisabledUntil = 0;
   });
 
   client.on('error', (err) => {
-    isRedisConnected = false;
-    logRedisUnavailableOnce(`[Redis] Connection unavailable: ${err.message}`);
+    markRedisUnavailable(`[Redis] Connection unavailable: ${err.message}`);
   });
 
   client.on('close', () => {
-    isRedisConnected = false;
-
-    if (!shouldLogRedisWarning() || hasLoggedRedisClose) {
-      return;
-    }
-
-    console.log('[Redis] Connection closed');
-    hasLoggedRedisClose = true;
+    markRedisUnavailable('[Redis] Connection closed; cache is temporarily disabled');
   });
 
   return client;
@@ -87,22 +166,35 @@ function getRedis() {
     return null;
   }
 
-  if (!process.env.REDIS_URL) {
+  const redisConfig = parseRedisUrl();
+
+  if (!redisConfig.enabled) {
+    return null;
+  }
+
+  if (Date.now() < redisDisabledUntil) {
     return null;
   }
 
   if (!redisClient) {
-    redisClient = createRedisClient();
+    redisClient = createRedisClient(redisConfig);
   }
 
   if (isRedisConnected) {
     return redisClient;
   }
 
-  if (!redisConnectionPromise) {
+  if (redisClient.status === "end") {
+    redisClient.removeAllListeners();
+    redisClient = createRedisClient(redisConfig);
+  }
+
+  const canStartConnection = ["wait", "end", "close"].includes(redisClient.status);
+
+  if (!redisConnectionPromise && canStartConnection) {
     redisConnectionPromise = redisClient.connect()
       .catch(() => {
-        logRedisUnavailableOnce('[Redis] Skipping cache because Redis is unavailable');
+        markRedisUnavailable('[Redis] Skipping cache because Redis is unavailable');
         return null;
       })
       .finally(() => {
@@ -493,13 +585,21 @@ function simpleHash(str) {
  */
 async function healthCheck() {
   const client = getRedis();
-  if (!client) return { status: 'disabled', reason: 'REDIS_URL not configured' };
+  if (!client) {
+    const info = getRedisRuntimeInfo();
+    return {
+      status: info.enabled ? 'unavailable' : 'disabled',
+      reason: info.reason || (info.coolingDown ? 'Redis is cooling down after a connection failure' : 'Redis is not connected'),
+      redis: info,
+    };
+  }
 
   try {
     const pong = await client.ping();
-    return { status: 'connected', ping: pong };
+    return { status: 'connected', ping: pong, redis: getRedisRuntimeInfo() };
   } catch (err) {
-    return { status: 'error', reason: err.message };
+    markRedisUnavailable(`[Redis] Health check failed: ${err.message}`);
+    return { status: 'error', reason: err.message, redis: getRedisRuntimeInfo() };
   }
 }
 
@@ -537,4 +637,5 @@ export {
   KEYS,
   healthCheck,
   getRedis,
+  getRedisRuntimeInfo,
 };

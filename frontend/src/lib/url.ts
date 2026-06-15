@@ -3,7 +3,7 @@ export function buildApiUrl(path: string) {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "/api";
 
   if (/^https?:\/\//i.test(apiBase)) {
-    return new URL(normalizedPath, `${apiBase.replace(/\/?$/, "/")}`).toString();
+    return `${apiBase.replace(/\/+$/, "")}${normalizedPath}`;
   }
 
   if (typeof window !== "undefined") {

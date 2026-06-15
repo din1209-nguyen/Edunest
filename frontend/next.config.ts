@@ -2,11 +2,18 @@ import type { NextConfig } from "next";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const backendOrigin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "http://localhost:5000";
+const configuredBackendOrigin = process.env.NEXT_PUBLIC_BACKEND_ORIGIN;
+const backendOrigin = configuredBackendOrigin || "http://localhost:5000";
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 type MiddlewareClientMaxBodySize = NonNullable<
   NonNullable<NextConfig["experimental"]>["proxyClientMaxBodySize"]
 >;
+
+if (process.env.VERCEL && !configuredBackendOrigin) {
+  console.warn(
+    "[config] NEXT_PUBLIC_BACKEND_ORIGIN is not set on Vercel. /api rewrites will target http://localhost:5000 and login will fail.",
+  );
+}
 
 const nextConfig: NextConfig = {
   experimental: {

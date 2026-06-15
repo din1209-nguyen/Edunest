@@ -5,10 +5,9 @@ import config from "../config/index.js";
 
 let transporterPromise = null;
 
-const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
-
 function appUrl(path = "") {
-  return `${frontendUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return new URL(normalizedPath, config.cors.origin).toString();
 }
 
 function buildEmailVerificationUrl(token) {
