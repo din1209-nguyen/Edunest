@@ -117,7 +117,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/70 bg-white/85 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/70">
+    <header className="sticky top-0 z-50 w-full border-b border-white/70 bg-white/85 shadow-sm backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 dark:border-border dark:bg-[#111827]/90 dark:supports-[backdrop-filter]:bg-[#111827]/80">
       <div className="app-container flex h-16 items-center justify-between gap-2 lg:h-20 lg:gap-4">
         <div className="flex min-w-0 items-center gap-3 lg:gap-7">
           <Link href="/" className="group flex min-w-0 items-center gap-3">
@@ -173,13 +173,16 @@ export function Header() {
           className="hidden min-w-0 flex-1 items-center justify-center px-2 lg:flex lg:px-6 xl:px-8"
         >
           <div className="relative w-full max-w-md xl:max-w-xl">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search
+              className="absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#2563eb] opacity-100 dark:text-[#93c5fd]"
+              strokeWidth={2.75}
+            />
             <input
               type="search"
               placeholder="Tìm kiếm khóa học, kỹ năng, chủ đề..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-11 w-full rounded-full border border-white/70 bg-white/90 pl-11 pr-4 text-sm shadow-[0_12px_30px_-22px_rgba(15,23,42,0.55),0_4px_14px_-10px_rgba(55,118,232,0.35)] backdrop-blur-sm transition-colors focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10"
+              className="h-11 w-full rounded-full border border-white/70 bg-white/90 pl-11 pr-4 text-sm text-foreground shadow-[0_12px_30px_-22px_rgba(15,23,42,0.55),0_4px_14px_-10px_rgba(55,118,232,0.35)] backdrop-blur-sm transition-colors placeholder:text-muted-foreground focus:border-primary-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 dark:border-border dark:bg-[#172033] dark:text-foreground dark:placeholder:text-muted-foreground dark:focus:bg-[#172033]"
             />
           </div>
         </form>
@@ -418,13 +421,16 @@ export function Header() {
         <div className="border-t border-border bg-background md:hidden">
           <form onSubmit={handleSearch} className="app-container py-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search
+                className="absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-[#2563eb] opacity-100 dark:text-[#93c5fd]"
+                strokeWidth={2.75}
+              />
               <input
                 type="search"
                 placeholder="Tìm kiếm khóa học..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-10 w-full rounded-lg border border-border bg-white pl-10 pr-4 text-sm text-foreground shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)] transition-colors focus:border-primary-500 focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="h-10 w-full rounded-lg border border-border bg-white pl-10 pr-4 text-sm text-foreground shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)] transition-colors placeholder:text-muted-foreground focus:border-primary-500 focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:bg-[#172033] dark:focus:bg-[#172033]"
               />
             </div>
           </form>

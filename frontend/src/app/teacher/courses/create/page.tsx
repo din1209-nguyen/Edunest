@@ -64,6 +64,38 @@ function isValidOptionalUrl(value: string) {
   }
 }
 
+function getYoutubeEmbedUrl(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.hostname.includes("youtu.be")) {
+      const id = parsed.pathname.replace("/", "");
+      return id ? `https://www.youtube.com/embed/${id}` : "";
+    }
+
+    if (parsed.hostname.includes("youtube.com")) {
+      const id = parsed.searchParams.get("v");
+      return id ? `https://www.youtube.com/embed/${id}` : "";
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
+function isDirectVideoUrl(url: string) {
+  const normalizedUrl = url.toLowerCase().split("?")[0];
+  return (
+    normalizedUrl.endsWith(".mp4") ||
+    normalizedUrl.endsWith(".mpeg") ||
+    normalizedUrl.endsWith(".webm") ||
+    normalizedUrl.includes("/video/upload/")
+  );
+}
+
 function unwrapCategories(data: Category[] | { categories?: Category[] } | undefined) {
   if (Array.isArray(data)) return data;
   return data?.categories ?? [];
@@ -357,6 +389,11 @@ export default function TeacherCreateCoursePage() {
     }
 
     if (currentStep === 1) {
+      const thumbnailPreview = form.thumbnail.trim();
+      const videoPreviewUrl = form.previewVideo.trim();
+      const youtubePreviewUrl = getYoutubeEmbedUrl(videoPreviewUrl);
+      const directVideoUrl = isDirectVideoUrl(videoPreviewUrl) ? videoPreviewUrl : "";
+
       return (
         <Card>
           <CardHeader>
@@ -410,6 +447,43 @@ export default function TeacherCreateCoursePage() {
               />
               Đánh dấu khóa học nổi bật trong danh sách nội bộ
             </label>
+            <div className="md:col-span-2 grid gap-4 lg:grid-cols-2">
+              <div className="overflow-hidden rounded-xl border border-border bg-surface/70">
+                <div className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">Preview ảnh bìa</div>
+                <div
+                  className="aspect-video bg-cover bg-center"
+                  style={thumbnailPreview ? { backgroundImage: `url("${thumbnailPreview}")` } : undefined}
+                >
+                  {!thumbnailPreview && (
+                    <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <ImageIcon className="h-4 w-4" />
+                      Chưa có ảnh bìa
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="overflow-hidden rounded-xl border border-border bg-surface/70">
+                <div className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">Preview video giới thiệu</div>
+                <div className="aspect-video bg-white">
+                  {youtubePreviewUrl ? (
+                    <iframe
+                      src={youtubePreviewUrl}
+                      title="Preview video giới thiệu khóa học"
+                      className="h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : directVideoUrl ? (
+                    <video src={directVideoUrl} controls className="h-full w-full bg-black object-contain" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Video className="h-4 w-4" />
+                      Chưa có video xem trước
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       );
@@ -579,7 +653,7 @@ export default function TeacherCreateCoursePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {previewStats.map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-2xl border border-border bg-gradient-to-r from-white to-surface/80 px-4 py-3 text-sm shadow-soft">
+                <div key={item.label} className="flex items-center justify-between rounded-2xl border border-border bg-surface/70 px-4 py-3 text-sm shadow-soft">
                   <span className="text-muted-foreground">{item.label}</span>
                   <span className="font-medium text-foreground">{item.value}</span>
                 </div>

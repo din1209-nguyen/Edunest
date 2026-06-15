@@ -234,7 +234,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="content-stack">
-      <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-gradient-to-br from-slate-900 via-primary-900 to-secondary-900 text-white shadow-xl shadow-slate-950/10">
+      <div className="overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(135deg,#0f172a_0%,#172554_54%,#134e4a_100%)] text-white shadow-xl shadow-slate-950/10">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8 lg:py-8">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80">

@@ -82,6 +82,9 @@ const exerciseTypeOptions = [
   { value: "short-answer", label: "Trả lời ngắn" },
 ];
 
+const lessonDocumentAccept =
+  "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
 const exerciseSkillOptions = [
   { value: "grammar", label: "Ngữ pháp" },
   { value: "reading", label: "Đọc hiểu" },
@@ -221,6 +224,14 @@ function createLessonForm(lesson?: Lesson): LessonEditorForm {
     type: (lesson?.type as LessonEditorForm["type"]) || "video",
     isFree: Boolean(lesson?.isFree),
   };
+}
+
+function getDocumentTypeFromUrl(url: string): LessonEditorForm["documentType"] {
+  const normalizedUrl = url.toLowerCase().split("?")[0];
+  if (normalizedUrl.endsWith(".pdf")) return "pdf";
+  if (normalizedUrl.endsWith(".doc") || normalizedUrl.endsWith(".docx")) return "doc";
+  if (normalizedUrl.endsWith(".ppt") || normalizedUrl.endsWith(".pptx")) return "ppt";
+  return "pdf";
 }
 
 function createEmptyQuestion(type: ExerciseType = "single-choice"): ExerciseQuestionEditorForm {
@@ -1749,11 +1760,35 @@ export default function TeacherCourseEditPage() {
                     value={lessonForm.videoUrl}
                     onChange={(event) => updateNewLessonForm(activeChapter._id, "videoUrl", event.target.value)}
                   />
+                  <div className="flex items-end">
+                    <TeacherFileUploadButton
+                      accept="video/mp4,video/mpeg,video/webm"
+                      label="Upload video bài học"
+                      uploadType="video"
+                      onUploaded={(url) => {
+                        updateNewLessonForm(activeChapter._id, "videoUrl", url);
+                        updateNewLessonForm(activeChapter._id, "type", "video");
+                      }}
+                      onError={setError}
+                    />
+                  </div>
                   <Input
                     label="Tài liệu URL"
                     value={lessonForm.documentUrl}
                     onChange={(event) => updateNewLessonForm(activeChapter._id, "documentUrl", event.target.value)}
                   />
+                  <div className="flex items-end">
+                    <TeacherFileUploadButton
+                      accept={lessonDocumentAccept}
+                      label="Upload tài liệu"
+                      uploadType="document"
+                      onUploaded={(url) => {
+                        updateNewLessonForm(activeChapter._id, "documentUrl", url);
+                        updateNewLessonForm(activeChapter._id, "documentType", getDocumentTypeFromUrl(url));
+                      }}
+                      onError={setError}
+                    />
+                  </div>
                   <Select
                     label="Loại tài liệu"
                     options={[
@@ -1848,12 +1883,12 @@ export default function TeacherCourseEditPage() {
                     />
                     <div className="flex items-end">
                       <TeacherFileUploadButton
-                        accept="application/pdf"
-                        label="Upload tài liệu PDF"
+                        accept={lessonDocumentAccept}
+                        label="Upload tài liệu"
                         uploadType="document"
                         onUploaded={(url) => {
                           updateLessonForm(activeLesson._id, "documentUrl", url);
-                          updateLessonForm(activeLesson._id, "documentType", "pdf");
+                          updateLessonForm(activeLesson._id, "documentType", getDocumentTypeFromUrl(url));
                         }}
                         onError={setError}
                       />
@@ -3075,12 +3110,12 @@ export default function TeacherCourseEditPage() {
                                     />
                                     <div className="flex items-end">
                                       <TeacherFileUploadButton
-                                        accept="application/pdf"
-                                        label="Upload tài liệu PDF"
+                                        accept={lessonDocumentAccept}
+                                        label="Upload tài liệu"
                                         uploadType="document"
                                         onUploaded={(url) => {
                                           updateLessonForm(lesson._id, "documentUrl", url);
-                                          updateLessonForm(lesson._id, "documentType", "pdf");
+                                          updateLessonForm(lesson._id, "documentType", getDocumentTypeFromUrl(url));
                                         }}
                                         onError={setError}
                                       />
@@ -3654,7 +3689,7 @@ export default function TeacherCourseEditPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {readiness.items.map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-2xl border border-border bg-gradient-to-r from-white to-surface/80 px-4 py-3 text-sm shadow-soft">
+                <div key={item.label} className="flex items-center justify-between rounded-2xl border border-border bg-surface/70 px-4 py-3 text-sm shadow-soft">
                   <span className="font-bold text-foreground">{item.label}</span>
                   <Badge variant={item.done ? "success" : "warning"}>{item.done ? "Đạt" : "Thiếu"}</Badge>
                 </div>

@@ -33,7 +33,7 @@ export function Footer() {
   }
 
   return (
-    <footer className="relative overflow-hidden border-t border-white/10 bg-gradient-to-br from-primary-900 via-primary-800 to-secondary-900 text-white">
+    <footer className="relative overflow-hidden border-t border-white/10 bg-[linear-gradient(135deg,#172554_0%,#1e3a8a_52%,#134e4a_100%)] text-white">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-secondary-300/70 to-transparent" />
       <div className="absolute right-0 top-0 h-40 w-1/2 bg-gradient-to-bl from-secondary-400/20 to-transparent" />
 
