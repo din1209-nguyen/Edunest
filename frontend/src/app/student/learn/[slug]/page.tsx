@@ -206,7 +206,6 @@ export default function LearnCoursePage() {
   const activeLessonDocumentUrl = activeLesson?.documentUrl || activeLesson?.pdfUrl || "";
   const canGenerateAIExercise = Boolean(
     activeLesson &&
-      (activeLesson.type === "pdf" || activeLesson.type === "document") &&
       activeLesson.documentType === "pdf" &&
       activeLessonDocumentUrl,
   );
