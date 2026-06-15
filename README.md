@@ -4,562 +4,507 @@
 
 ![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=next.js&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?style=flat-square&logo=mongodb&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38BDF8?style=flat-square&logo=tailwind-css&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?style=flat-square&logo=mongodb&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-Upstash-DC382D?style=flat-square&logo=redis&logoColor=white)
+![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
+![Render](https://img.shields.io/badge/Deploy-Render-46E3B7?style=flat-square&logo=render&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-**Edunest** là nền tảng học tiếng Anh trực tuyến theo mô hình MOOC, clone từ Udemy.
-Hệ thống hiện dùng 2 vai trò phân quyền chính: **Người dùng (user)** và **Quản trị viên (admin)**. Các khu vực giao diện/nghiệp vụ cũ vẫn có thể còn nhãn `teacher`/`student`, nhưng không còn là role RBAC chuẩn của hệ thống.
+**Edunest** là nền tảng học tiếng Anh trực tuyến theo mô hình MOOC, lấy cảm hứng từ Udemy. Hệ thống hỗ trợ hai vai trò trong RBAC: **người dùng (user)** và **quản trị viên (admin)**. Mọi tài khoản đã đăng ký đều có thể tạo và quản lý khóa học; admin chịu trách nhiệm duyệt nội dung và vận hành hệ thống.
 
-> **Về kiến trúc:** Dự án được tách thành hai tiến trình độc lập — `frontend` (Next.js App Router, render UI + Server Actions) và `backend` (Express, REST API + Socket.IO). Giao tiếp qua HTTP/HTTPS và JWT, dữ liệu persistent nằm trong MongoDB, cache/queue dùng Redis. Việc tách này giúp scale từng phần riêng biệt và deploy lên Vercel/Render độc lập.
+> **Kiến trúc:** Dự án tách thành hai tiến trình độc lập — `frontend` (Next.js 15 App Router) và `backend` (Express 5 + Socket.IO). Giao tiếp qua HTTPS và JWT, dữ liệu lưu trong MongoDB, cache/queue dùng Redis. Frontend proxy `/api` và `/socket.io` sang backend qua cơ chế rewrite của Next.js, giúp cookie đăng nhập gắn theo domain frontend.
 
-[Demo](#-demo) · [Tính năng](#-tính-năng) · [Kiến trúc](#-kiến-trúc) · [Cài đặt](#-cài-đặt) · [API Docs](#-api-documentation)
+[Demo](#demo) · [Tính năng](#tính-năng) · [Kiến trúc](#kiến-trúc) · [Cài đặt](#cài-đặt) · [API Docs](#api-documentation) · [Deployment](#deployment)
 
 </div>
 
 ---
 
-## 🚀 Demo
+## Demo
 
-> **Frontend (Vercel):** `https://your-frontend.vercel.app`
+| Dịch vụ | URL |
+|---------|-----|
+| **Frontend** | [edunest-frontend-kappa.vercel.app](https://edunest-frontend-kappa.vercel.app/) |
+| **Backend API** | [edunest-backend-ytfb.onrender.com](https://edunest-backend-ytfb.onrender.com) |
+| **Swagger UI** | [/api-docs](https://edunest-backend-ytfb.onrender.com/api-docs) |
+| **Health Check** | [/api/health](https://edunest-backend-ytfb.onrender.com/api/health) |
 
-> **Backend (Render):** `https://your-backend.onrender.com`
-
-> **API Docs:** `https://your-backend.onrender.com/api-docs`
-
-> **Lưu ý:** Hai URL trên là placeholder minh hoạ. Khi clone về chạy local theo mục [Cài đặt](#-cài-đặt), frontend mặc định truy cập `http://localhost:3001` và backend ở `http://localhost:5000`; tài khoản demo có sẵn trong bảng phía dưới để bạn thử đầy đủ luồng học/mua/đánh giá mà không cần đăng ký.
-
+> **Lưu ý:** Cookie đăng nhập (`edunest_access_token`, `edunest_refresh_token`) được backend set với `SameSite=Lax; Secure`, do đó sẽ đi kèm request từ domain frontend trên Vercel. Khi chạy local, xem hướng dẫn tại mục [Cài đặt](#cài-đặt) và [Tài khoản demo](#tài-khoản-demo).
 
 ---
 
-## 🎯 Tính năng
+## Tính năng
 
-### Học viên (Student)
+### Học viên
 
-- [x] Đăng ký / Đăng nhập (JWT + Refresh Token)
-- [x] Đăng nhập Google OAuth *(điểm cộng)*
-- [x] Khám phá khóa học, tìm kiếm với bộ lọc
-- [x] Thêm khóa học vào giỏ hàng
-- [x] Thanh toán qua VNPay (sandbox) và mock checkout cho môi trường dev/demo
-- [x] Học bài: video, tài liệu PDF
-- [x] Làm bài tập trắc nghiệm (chấm điểm tự động)
-- [x] Ghi chú trong bài học
-- [x] Tạo bài tập bằng AI (OpenAI API)
-- [x] Nhận chứng chỉ khi hoàn thành 100%
-- [x] Đánh giá khóa học
-- [x] Wishlist (yêu thích)
+- [x] Đăng ký / Đăng nhập bằng email + mật khẩu (JWT + Refresh Token, HTTP-only cookie)
+- [x] Xác minh email, quên mật khẩu, đổi mật khẩu, quản lý phiên đăng nhập
+- [x] Đăng nhập bằng Google OAuth 2.0
+- [x] Duyệt và tìm kiếm khóa học với nhiều bộ lọc (danh mục, cấp độ, ngôn ngữ, miễn phí, đánh giá, trending…)
+- [x] Xem chi tiết khóa học theo slug, danh sách chương/bài học, đánh giá
+- [x] Giỏ hàng và thanh toán qua VNPay (sandbox) hoặc mock checkout
+- [x] Học bài: video, tài liệu PDF, theo dõi tiến độ từng bài
+- [x] Làm bài tập trắc nghiệm và điền vào chỗ trống (chấm điểm tự động)
+- [x] Ghi chú trong bài học theo timestamp
+- [x] Sinh bài tập bằng AI (Google Gemini, hỗ trợ `AI_MOCK_MODE` khi dev)
+- [x] Nhận chứng chỉ khi hoàn thành 100% khóa học
+- [x] Đánh giá khóa học (rating, bình luận, vote helpful)
+- [x] Wishlist và follow tác giả
+- [x] Gợi ý khóa học cá nhân hóa
 
-### Giảng viên (Teacher)
+### Người tạo khóa học
+
+> Mọi `user` đã đăng nhập đều có thể truy cập khu vực `/teacher` để tạo và quản lý khóa học. `admin` thừa hưởng toàn bộ quyền này.
 
 - [x] Tạo / chỉnh sửa / xóa khóa học
-- [x] Upload video + tài liệu (Cloudinary)
+- [x] Upload video bài giảng và tài liệu PDF lên Cloudinary
 - [x] Tạo chương / bài học / bài tập
-- [x] Gửi khóa học để duyệt (Admin)
-- [x] Xem danh sách học viên
-- [x] Dashboard thống kê
-- [x] Realtime dashboard *(điểm cộng)*
+- [x] Gửi khóa học để admin duyệt
+- [x] Xem danh sách học viên đã đăng ký
+- [x] Dashboard thống kê (học viên, doanh thu, đánh giá) với cập nhật realtime qua Socket.IO
 
-### Quản trị viên (Admin)
+### Quản trị viên
 
-- [x] Duyệt / từ chối / ban khóa học
-- [x] Quản lý tài khoản (cấm, phân quyền)
-- [x] Dashboard tổng quan
+- [x] Duyệt / từ chối / khóa khóa học
+- [x] Quản lý tài khoản (xem, cấm/mở cấm, đổi vai trò)
+- [x] Dashboard tổng quan hệ thống
+- [x] Xem log sử dụng AI (token usage theo user)
 
 ### Hệ thống
 
-- [x] JWT + Refresh Token (2 role: user + admin)
-- [x] Docker Compose
-- [x] Unit tests (Jest)
-- [x] Server Actions (Next.js) 
-- [x] Server Actions cho enrollment, cart, lesson completion và mock checkout
-- [x] Email notification (Nodemailer) 
+- [x] JWT + Refresh Token với thu hồi theo phiên (`AuthSession` model)
+- [x] Rate limiting cho endpoint nhạy cảm (login, register, forgot password, resend verification)
+- [x] Docker Compose cho MongoDB, Redis, backend, frontend
+- [x] Unit + integration tests với Jest + Supertest + MongoDB Memory Server
+- [x] Server Actions (Next.js) cho enrollment, cart, lesson completion và mock checkout
+- [x] Email thông báo qua Nodemailer + Brevo SMTP
+- [x] Caching với Redis (Upstash ở production, container ở local)
+- [x] Realtime với Socket.IO
+- [x] Swagger UI tại `/api-docs`
 
 ---
 
-## 🏗️ Kiến trúc
+## Kiến trúc
 
-```
-                    ┌──────────────────────────────────────────────┐
-                    │                 CLIENT (Browser)             │
-                    │            Next.js 15 (App Router)         │
-                    │     React 19 + Tailwind CSS + Zustand        │
-                    └──────────────────┬───────────────────────────┘
-                                       │ HTTPS
-                    ┌──────────────────▼───────────────────────────┐
-                    │           LOAD BALANCER (Vercel)             │
-                    └──────────────────┬───────────────────────────┘
-                                       │ HTTPS
-┌──────────────────────────────────────▼────────────────────────────────────────────┐
-│                                  NGINX / CDN                                      │
-│                         (Static assets, Media caching)                            │
-└─────────────────┬──────────────────────────────────────────┬──────────────────────┘
-                  │                                          │
-         ┌────────▼────────┐                        ┌────────▼──────────┐
-         │   Vercel CDN    │                        │  Render / Railway │
-         │  (Frontend)     │                        │   (Backend)       │
-         └─────────────────┘                        └────────┬──────────┘
-                                                              │
-                                                    ┌─────────▼───────────┐
-                                                    │   Express 5 (API)   │
-                                                    │  Router→Controller  │
-                                                    │  →Service→Model     │
-                                                    └─────────┬───────────┘
-                                                              │
-                              ┌───────────────────────────────┼──────────────────────────────┐
-                              │                               │                              │
-                    ┌─────────▼──────────┐         ┌─────────▼──────────┐         ┌──────────▼────────┐
-                    │   MongoDB Atlas    │         │   Cloudinary CDN   │         │   OpenAI API      │
-                    │  (Primary DB)      │         │  (Video/Images)    │         │  (AI Exercises)   │
-                    └────────────────────┘         └────────────────────┘         └───────────────────┘
+### Sơ đồ tổng quan
+
+```mermaid
+flowchart LR
+  Browser["Browser"]
+  Vercel["Vercel\nNext.js 15 App Router"]
+  Render["Render\nExpress 5 + Socket.IO"]
+  Mongo[("MongoDB Atlas")]
+  Upstash[("Upstash Redis")]
+  Cloudinary["Cloudinary\nVideo / Image / PDF"]
+  Gemini["Google Gemini API"]
+  Brevo["Brevo SMTP"]
+  VNPay["VNPay Sandbox"]
+
+  Browser -->|HTTPS| Vercel
+  Vercel -->|"/api rewrite"| Render
+  Vercel -->|"/socket.io rewrite"| Render
+  Render --> Mongo
+  Render --> Upstash
+  Render --> Cloudinary
+  Render --> Gemini
+  Render --> Brevo
+  Render --> VNPay
 ```
 
 ### Chiến lược Rendering (Next.js)
 
 | Route | Chiến lược | Lý do |
 |-------|-----------|-------|
-| `/` (Landing) | **ISR** `revalidate=3600` | Nội dung ít thay đổi, SEO tối đa |
-| `/courses` | **ISR** `revalidate=300` | Danh sách thay đổi khi có course mới |
-| `/courses/[slug]` | **ISR** `revalidate=300` | Chi tiết động theo slug, cache được |
-| `/search` | **SSR** `force-dynamic` | Query params động, không cache được |
-| `/student/*` | **SSR** `force-dynamic` | Dữ liệu cá nhân riêng tư |
-| `/teacher/*` | **SSR** `force-dynamic` | Dashboard cá nhân giáo viên |
-| `/admin/*` | **SSR** `force-dynamic` | Dashboard cá nhân admin |
+| `/` (Landing) | SSR + cache ngắn | SEO và first-paint, tải categories/top-rated/trending từ server |
+| `/courses` | SSR | Thay đổi theo bộ lọc, cache theo query string |
+| `/courses/[slug]` | SSR | Chi tiết khóa học động |
+| `/search` | SSR `force-dynamic` | Query params động, không cache |
+| `/student/*` | SSR `force-dynamic` | Dữ liệu cá nhân, không cache |
+| `/teacher/*` | SSR `force-dynamic` | Dashboard cá nhân người tạo khóa học |
+| `/admin/*` | SSR `force-dynamic` | Dashboard cá nhân admin |
 
 ### Cấu trúc thư mục
 
 ```
 edunest/
-├── frontend/                          # Next.js App Router
+├── frontend/                        # Next.js 15 (App Router, TypeScript)
 │   ├── src/
-│   │   ├── app/                      # App Router pages
-│   │   │   ├── (public)/             # Public routes
-│   │   │   ├── admin/                # Admin routes
-│   │   │   ├── student/              # Student routes
-│   │   │   ├── teacher/              # Teacher routes
-│   │   │   ├── cart/                 # Cart
-│   │   │   ├── categories/           # Categories
-│   │   │   ├── search/               # Search
-│   │   │   └── login|register/       # Auth pages
-│   │   ├── components/               # UI components
-│   │   │   ├── layout/              # Layout (Header, Footer, Hero...)
-│   │   │   ├── course/              # Course cards, progress bar
-│   │   │   ├── ui/                  # Shadcn UI components
-│   │   │   ├── ai/                  # AI exercise generator
-│   │   │   └── ...
-│   │   ├── stores/                  # Zustand state management
-│   │   ├── lib/                    # Utilities, API clients
-│   │   │   ├── api.ts              # Axios instance
-│   │   │   ├── studentApi.ts       # Student API calls
-│   │   │   ├── server-actions.ts   # Next.js Server Actions
-│   │   │   └── paymentApi.ts       # Payment API
-│   │   └── types/                  # TypeScript types
+│   │   ├── app/                     # App Router pages
+│   │   │   ├── (public)/            # /, /courses, /search, /categories…
+│   │   │   ├── admin/
+│   │   │   ├── student/
+│   │   │   ├── teacher/
+│   │   │   ├── cart/
+│   │   │   └── settings/
+│   │   ├── components/
+│   │   │   ├── layout/              # Header, Footer
+│   │   │   ├── course/              # Course cards, progress bar, lesson player
+│   │   │   ├── home/                # Hero, Features, Testimonials, CTA
+│   │   │   ├── admin/
+│   │   │   ├── teacher/             # Course builder UI
+│   │   │   ├── auth/
+│   │   │   └── ui/                  # Shadcn-style UI components
+│   │   ├── hooks/                   # Custom React hooks (useSocket…)
+│   │   ├── lib/                     # API clients, utils
+│   │   ├── stores/                  # Zustand (auth, wishlist)
+│   │   └── types/
 │   ├── Dockerfile
+│   ├── next.config.ts               # Cấu hình rewrite /api, /socket.io
 │   └── package.json
 │
-├── backend/                           # Node.js / Express (ES Modules)
+├── backend/                         # Node.js / Express 5 (ES Modules)
 │   ├── src/
-│   │   ├── index.js                 # Entry point
-│   │   ├── config/
-│   │   │   ├── index.js            # Environment config
-│   │   │   └── database.js         # MongoDB connection
-│   │   ├── models/                  # Mongoose schemas (13 models)
-│   │   │   ├── User.js
-│   │   │   ├── Course.js
-│   │   │   ├── Chapter.js
-│   │   │   ├── Lesson.js
-│   │   │   ├── Exercise.js
-│   │   │   ├── Enrollment.js
-│   │   │   ├── Cart.js
-│   │   │   ├── Payment.js
-│   │   │   ├── Certificate.js
-│   │   │   ├── Note.js
-│   │   │   ├── Review.js
-│   │   │   ├── WishlistItem.js
-│   │   │   └── Category.js
-│   │   ├── routes/                 # Express routers (17 routes)
+│   │   ├── index.js
+│   │   ├── config/                  # env, database, email
+│   │   ├── models/                  # 16 Mongoose schemas
+│   │   ├── routes/                  # 18 Express routers
 │   │   ├── services/                # Business logic
-│   │   ├── controllers/             # Route handlers
-│   │   ├── middlewares/             # Auth, validation, error handling
-│   │   ├── utils/                  # Validators (Zod), seed data
-│   │   └── socket/                 # Socket.io (Realtime)
+│   │   ├── controllers/
+│   │   ├── middlewares/             # auth, validate, rateLimit, errorHandler
+│   │   ├── utils/                   # Zod validators, seed, helpers
+│   │   └── swagger.js
+│   ├── __tests__/
+│   │   ├── auth.test.js
+│   │   ├── enrollment.test.js
+│   │   ├── exercise.test.js
+│   │   ├── payment.test.js
+│   │   └── aiExercise.test.js
 │   ├── Dockerfile
 │   └── package.json
 │
-├── docker-compose.yml                # Docker Compose (MongoDB + Redis + services)
-├── .env.example                     # Environment variables template
-├── docs/                            # Documentation
-└── README.md
+├── docker-compose.yml               # MongoDB 7 + Redis 7 + backend + frontend
+├── .env.example
+├── docs/
+├── README.md
+└── LICENSE
 ```
 
-### Chuẩn giao diện hiện tại
-
-- Visual direction: hiện đại, sáng, mềm, có chiều sâu theo phong cách sản phẩm học tập cao cấp
-- Màu chủ đạo: `primary` thiên indigo, `secondary` thiên teal, `accent` thiên cam ấm cho CTA
-- UI surface: ưu tiên gradient nhẹ, glass nhẹ, card bo góc lớn, bóng đổ mềm thay vì khối phẳng đơn giản
-- Icon: dùng có chủ đích, đồng bộ kích thước/stroke, thường đi cùng nền capsule hoặc ô bo góc
-- Media: video giới thiệu và lesson video phải render được thật; thumbnail fallback vẫn phải đẹp và có overlay tử tế
-- Khi agent tạo/sửa frontend, cần tái sử dụng token và component nền trong `frontend/src/app/globals.css` và `frontend/src/components/ui/*`
-
 ---
 
-## 📋 Yêu cầu kỹ thuật
+## Tech Stack
 
-### Prerequisites
-
-- **Node.js** 18+
-- **Docker** & **Docker Compose** (để chạy MongoDB, Redis, backend, frontend)
-- **MongoDB** 7 (hoặc MongoDB Atlas)
-- **npm** hoặc **yarn**
-
-### Tech Stack
-
-| Layer | Technology |
+| Layer | Công nghệ |
 |-------|-----------|
-| Frontend | Next.js 15 (App Router), React 19, Tailwind CSS 4 |
+| Frontend | Next.js 15 (App Router), React 19, TypeScript 5 |
+| Styling | Tailwind CSS 4, Shadcn-style components, lucide-react |
 | State | Zustand 5 |
 | Form | React Hook Form + Zod |
-| Backend | Node.js, Express 5 (ES Modules) |
-| Database | MongoDB 7, Mongoose 9.6 |
-| Auth | JWT + Refresh Token |
-| Upload | Cloudinary |
-| Cache | Redis |
-| Payment | VNPay Sandbox |
-| AI | OpenAI API (GPT-4o-mini) |
-| Email | Nodemailer |
-| Realtime | Socket.io |
+| HTTP | Axios (qua rewrite `/api`) |
+| Realtime | Socket.IO client |
+| Backend | Node.js 20+, Express 5 (ES Modules) |
+| Database | MongoDB 7, Mongoose 9 |
+| Auth | JWT + Refresh Token (HTTP-only cookie) + Google OAuth 2.0 |
+| Upload | Cloudinary (video, image, PDF) |
+| Cache | Redis 7 (Docker local) / Upstash Redis (production) |
+| Payment | VNPay Sandbox + mock checkout |
+| AI | Google Gemini API (`gemini-2.5-flash`) |
+| Email | Nodemailer + Brevo SMTP |
 | Container | Docker Compose |
-| Testing | Jest |
+| Testing | Jest + Supertest + mongodb-memory-server |
+| Docs | Swagger UI / swagger-jsdoc |
 
 ---
 
-## 🛠️ Cài đặt
+## Yêu cầu
 
-### 1. Chuẩn bị
+- **Node.js** 20+
+- **npm** 10+
+- **Docker Desktop** hoặc Docker Engine + Docker Compose
+
+---
+
+## Cài đặt
+
+### 1. Clone dự án
 
 ```bash
 git clone https://github.com/din1209-nguyen/Edunest.git
 cd edunest
 ```
 
-Yêu cầu tối thiểu:
-
-- Node.js 20+
-- Docker Desktop hoặc Docker Engine có Docker Compose
-- npm
-
 ### 2. Tạo file môi trường
 
-Dự án dùng **một file `.env` ở thư mục root** cho cả backend và frontend.
-
 ```bash
-# macOS/Linux/Git Bash
+# macOS / Linux
 cp .env.example .env
 
 # Windows PowerShell
 Copy-Item .env.example .env
 ```
 
-Mở `.env` và điền tối thiểu:
+Mở `.env` và điền **bắt buộc** hai biến:
 
 - `JWT_SECRET`
 - `JWT_REFRESH_SECRET`
 
-Các biến còn lại như Cloudinary, Google OAuth, SMTP, VNPay, AI có thể để trống nếu chưa dùng các tính năng tương ứng.
+Các biến còn lại (`GEMINI_API_KEY`, `CLOUDINARY_*`, `GOOGLE_*`, `SMTP_*`, `VNPAY_*`) có thể để trống nếu chưa cần tính năng tương ứng — backend có cơ chế fallback cho từng dịch vụ.
 
-### 3. Chọn cách chạy
+> **Redis local:** Docker Compose tự khởi tạo Redis trong network nội bộ, không cần cấu hình thêm. `REDIS_URL` chỉ cần thiết khi deploy production với Upstash.
 
-#### Cách A: Backend bằng Docker, frontend chạy local
+### 3. Chạy ứng dụng
 
-Đây là cách phù hợp khi phát triển frontend vì Next.js chạy ở chế độ dev và tự reload khi sửa code.
+**Cách A — Backend qua Docker, frontend chạy local** *(khuyến nghị khi dev frontend)*
 
 ```bash
-# Cài dependency cho frontend
 npm install --prefix frontend
-
-# Chạy backend cùng MongoDB và Redis
 docker compose up --build -d backend
-docker compose ps
-
-# Chạy frontend local
-cd frontend
-npm run dev
+cd frontend && npm run dev
 ```
 
-Với cách này:
+| Dịch vụ | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:5000 |
+| API Docs | http://localhost:5000/api-docs |
+| MongoDB (host) | localhost:27018 |
 
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:5000`
-- API Docs: `http://localhost:5000/api-docs`
-- MongoDB trên host: `localhost:27018`
-- Redis chỉ chạy trong network nội bộ Docker Compose
-
-Backend chạy bằng Docker nên không cần `npm install` trong thư mục `backend` trước. Dockerfile sẽ tự cài dependency khi build image.
-
-#### Cách B: Chạy toàn bộ bằng Docker Compose
-
-Nếu chỉ muốn chạy app nhanh mà không cần dev frontend trực tiếp, dùng:
+**Cách B — Toàn bộ qua Docker Compose**
 
 ```bash
 docker compose up -d --build
 ```
 
-Với cách này không cần chạy `npm install` ngoài host. Docker sẽ tự cài dependency cho cả backend và frontend khi build image.
-
-Sau khi container chạy xong:
-
-- Frontend: `http://localhost:3001`
-- Backend API: `http://localhost:5000`
-- API Docs: `http://localhost:5000/api-docs`
-- MongoDB trên host: `localhost:27018`
-- Redis chỉ chạy trong network nội bộ Docker Compose
-
-Xem log khi cần debug:
+| Dịch vụ | URL |
+|---------|-----|
+| Frontend | http://localhost:3001 |
+| Backend API | http://localhost:5000 |
+| API Docs | http://localhost:5000/api-docs |
+| MongoDB (host) | localhost:27018 |
 
 ```bash
+# Xem logs
 docker compose logs backend
 docker compose logs frontend
 ```
 
-MongoDB local trong Docker Compose không bật authentication. Backend trong container sẽ dùng `mongodb://mongodb:27017/edunest`, còn máy host có thể truy cập MongoDB qua `mongodb://localhost:27018/edunest`.
+**Cách C — Chạy hoàn toàn local (không Docker)**
+
+```bash
+npm install --prefix backend
+npm install --prefix frontend
+
+# Terminal 1
+cd backend && npm run dev
+
+# Terminal 2
+cd frontend && npm run dev
+```
+
+Yêu cầu có MongoDB local hoặc MongoDB Atlas. Nếu dùng MongoDB từ Docker Compose, giữ `MONGODB_URI=mongodb://localhost:27018/edunest`.
 
 ### 4. Seed dữ liệu demo
 
-Chạy sau khi backend Docker đã khởi động:
+Chạy sau khi backend đã khởi động:
 
 ```bash
 docker compose exec backend npm run seed
 ```
 
-Lệnh seed sẽ reset database local rồi tạo dữ liệu demo gồm users, categories, courses, chapters, lessons, exercises, enrollments, payments, reviews, certificates, cart và wishlist. Không chạy seed trên production.
-
-### 5. Chạy full local không Docker
-
-Bạn cần có MongoDB local hoặc MongoDB Atlas. Nếu dùng MongoDB từ Docker Compose, giữ `MONGODB_URI=mongodb://localhost:27018/edunest` trong `.env`.
-
-Trước khi chạy full local, cài dependency cho cả hai phần:
-
-```bash
-npm install --prefix backend
-npm install --prefix frontend
-```
-
-```bash
-# Terminal 1: Backend
-cd backend
-npm run dev
-# Server chạy tại http://localhost:5000
-
-# Terminal 2: Frontend
-cd frontend
-npm run dev
-# App chạy tại http://localhost:3000
-```
+Lệnh này **reset toàn bộ database local** rồi tạo ~30 user, 10 categories, 60 courses, hàng trăm bài học, bài tập, enrollments, payments, reviews và certificates. **Không chạy trên production.**
 
 ---
 
+## Tài khoản demo
 
-## 📖 API Documentation
+Các tài khoản sau có sẵn sau khi seed (đã được đánh dấu `isEmailVerified: true`):
 
-Swagger API docs có sẵn tại: **`/api-docs`**
+| Vai trò | Email | Mật khẩu |
+|---------|-------|----------|
+| Quản trị viên | `admin@edunest.local` | `Admin123` |
+| Người tạo khóa học | `creator@edunest.local` | `Creator123` |
+| Giảng viên (mẫu) | `teacher@edunest.local` | `Teacher123` |
+| Giảng viên Linh | `linh.teacher@edunest.local` | `Teacher123` |
+| Giảng viên Minh | `minh.teacher@edunest.local` | `Teacher123` |
+| Học viên | `user@edunest.local` | `User1234` |
+| Học viên 1–24 | `learner1@edunest.local` … `learner24@edunest.local` | `User1234` |
+
+---
+
+## API Documentation
+
+Swagger UI tương tác:
+
+- **Production:** https://edunest-backend-ytfb.onrender.com/api-docs
+- **Local:** http://localhost:5000/api-docs
+
+OpenAPI JSON: `/api-docs.json`
 
 ### Authentication
 
-| Method | Endpoint | Mô tả | Body / Params |
-|--------|----------|--------|---------------|
-| POST | `/api/auth/register` | Đăng ký | `{ name, email, password, role? }` |
-| POST | `/api/auth/login` | Đăng nhập | `{ email, password }` |
-| POST | `/api/auth/refresh` | Refresh token | `{ refreshToken }` |
-| GET | `/api/auth/me` | Thông tin user | Auth header |
-| PATCH | `/api/auth/profile` | Cập nhật profile | Auth header |
-| POST | `/api/auth/change-password` | Đổi mật khẩu | Auth header |
-| POST | `/api/auth/logout` | Đăng xuất | Auth header |
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| POST | `/api/auth/register` | Đăng ký tài khoản | — |
+| POST | `/api/auth/login` | Đăng nhập | — |
+| POST | `/api/auth/logout` | Đăng xuất phiên hiện tại | User |
+| POST | `/api/auth/refresh` | Refresh access token | — |
+| GET | `/api/auth/me` | Thông tin user hiện tại | User |
+| PATCH | `/api/auth/profile` | Cập nhật profile | User |
+| POST | `/api/auth/change-password` | Đổi mật khẩu | User |
+| POST | `/api/auth/forgot-password` | Yêu cầu đặt lại mật khẩu | — |
+| POST | `/api/auth/reset-password` | Đặt lại mật khẩu | — |
+| GET | `/api/auth/verify-email` | Xác minh email | — |
+| POST | `/api/auth/resend-verification` | Gửi lại email xác minh | — |
+| GET | `/api/auth/sessions` | Danh sách phiên đăng nhập | User |
+| DELETE | `/api/auth/sessions/:sessionId` | Thu hồi một phiên | User |
+| DELETE | `/api/auth/sessions` | Đăng xuất tất cả thiết bị | User |
+| GET | `/api/auth/google` | Bắt đầu Google OAuth | — |
+| GET | `/api/auth/google/callback` | Google OAuth callback | — |
 
 ### Courses
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/courses` | Danh sách khóa học (có filter) | Không |
-| GET | `/api/courses/slug/:slug` | Chi tiết khóa học theo slug | Không |
-| GET | `/api/courses/:id` | Chi tiết khóa học theo ID | Không |
+|--------|----------|-------|------|
+| GET | `/api/public/courses` | Danh sách khóa học (cache) | — |
+| GET | `/api/public/courses/slug/:slug` | Chi tiết theo slug | — |
+| GET | `/api/public/courses/:id` | Chi tiết theo ID | — |
 
-### Enrollments (Student)
-
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/enrollments/my-courses` | Khóa học đã đăng ký | Student |
-| POST | `/api/enrollments/:courseId/free-enroll` | Đăng ký khóa miễn phí | Student |
-| GET | `/api/enrollments/:courseId/progress` | Tiến độ học tập | Student |
-| POST | `/api/enrollments/:courseId/lessons/:lessonId/complete` | Đánh dấu hoàn thành | Student |
-
-### Cart (Student)
+### Enrollments
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/cart` | Lấy giỏ hàng | Student |
-| POST | `/api/cart/items` | Thêm vào giỏ | Student |
-| DELETE | `/api/cart/items/:courseId` | Xóa khỏi giỏ | Student |
-| DELETE | `/api/cart/clear` | Xóa toàn bộ giỏ | Student |
+|--------|----------|-------|------|
+| GET | `/api/enrollments/my-courses` | Khóa học đã đăng ký | User |
+| POST | `/api/enrollments/:courseId/free-enroll` | Đăng ký khóa miễn phí | User |
+| GET | `/api/enrollments/:courseId/progress` | Tiến độ học tập | User |
+| POST | `/api/enrollments/:courseId/lessons/:lessonId/complete` | Đánh dấu hoàn thành bài | User |
 
-### Payments (Student)
-
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| POST | `/api/payments/create` | Tạo payment record cho mock/manual flow | Student |
-| POST | `/api/payments/vnpay/create` | Tạo thanh toán VNPay | Student |
-| GET | `/api/payments/vnpay/return` | Callback từ VNPay | Không |
-| POST | `/api/payments/mock-success` | Mock thanh toán thành công | Student |
-| GET | `/api/payments/history` | Lịch sử thanh toán | Student |
-
-### Notes (Student)
+### Cart
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/lessons/:lessonId/notes` | Lấy ghi chú | Student |
-| POST | `/api/lessons/:lessonId/notes` | Tạo ghi chú | Student |
-| PATCH | `/api/notes/:noteId` | Cập nhật ghi chú | Student |
-| DELETE | `/api/notes/:noteId` | Xóa ghi chú | Student |
+|--------|----------|-------|------|
+| GET | `/api/cart` | Lấy giỏ hàng | User |
+| POST | `/api/cart/items` | Thêm vào giỏ | User |
+| DELETE | `/api/cart/items/:courseId` | Xóa khỏi giỏ | User |
+| DELETE | `/api/cart/clear` | Xóa toàn bộ giỏ | User |
+
+### Payments
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| POST | `/api/payments/create` | Tạo payment record | User |
+| POST | `/api/payments/vnpay/create` | Tạo thanh toán VNPay | User |
+| GET | `/api/payments/vnpay/return` | VNPay callback | — |
+| POST | `/api/payments/mock-success` | Mock thanh toán thành công | User |
+| GET | `/api/payments/history` | Lịch sử thanh toán | User |
+
+### Notes
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/api/lessons/:lessonId/notes` | Ghi chú của bài học | User |
+| POST | `/api/lessons/:lessonId/notes` | Tạo ghi chú | User |
+| PATCH | `/api/notes/:noteId` | Cập nhật ghi chú | User |
+| DELETE | `/api/notes/:noteId` | Xóa ghi chú | User |
+
+### Exercises
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/api/exercises/:id` | Chi tiết bài tập | User |
+| POST | `/api/exercises/:id/submit` | Nộp bài | User |
 
 ### Reviews
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/courses/:courseId/reviews` | Reviews theo khóa học | Không |
+|--------|----------|-------|------|
+| GET | `/api/courses/:courseId/reviews` | Reviews theo khóa học | — |
 | POST | `/api/reviews` | Tạo review | User |
 | PATCH | `/api/reviews/:reviewId` | Cập nhật review | User |
 | DELETE | `/api/reviews/:reviewId` | Xóa review | User |
 | POST | `/api/reviews/:reviewId/helpful` | Vote helpful | User |
 
-### Wishlist (Student)
+### Wishlist
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/wishlist` | Lấy wishlist | Student |
-| POST | `/api/wishlist` | Thêm vào wishlist | Student |
-| DELETE | `/api/wishlist/:courseId` | Xóa khỏi wishlist | Student |
-| POST | `/api/wishlist/toggle` | Toggle wishlist | Student |
+|--------|----------|-------|------|
+| GET | `/api/wishlist` | Lấy wishlist | User |
+| POST | `/api/wishlist` | Thêm vào wishlist | User |
+| DELETE | `/api/wishlist/:courseId` | Xóa khỏi wishlist | User |
+| POST | `/api/wishlist/toggle` | Toggle wishlist | User |
 
-### Certificates (Student)
+### Certificates
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/certificates/my-certificates` | Danh sách chứng chỉ | Student |
-| GET | `/api/certificates/:courseId` | Chi tiết chứng chỉ | Student |
-| GET | `/api/certificates/:courseId/check` | Kiểm tra đủ điều kiện | Student |
+|--------|----------|-------|------|
+| GET | `/api/certificates/my-certificates` | Danh sách chứng chỉ | User |
+| GET | `/api/certificates/:courseId` | Chi tiết chứng chỉ | User |
+| GET | `/api/certificates/:courseId/check` | Kiểm tra đủ điều kiện | User |
 
 ### Categories
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/categories` | Danh sách danh mục | Không |
-| GET | `/api/categories/:slug` | Chi tiết danh mục | Không |
+|--------|----------|-------|------|
+| GET | `/api/categories` | Danh sách danh mục (cache) | — |
+| GET | `/api/categories/:slug` | Chi tiết danh mục + khóa học | — |
 
-### Search
-
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/search` | Tìm kiếm khóa học | Không |
-| GET | `/api/search/suggestions` | Gợi ý tìm kiếm | Không |
-| GET | `/api/search/trending` | Khóa học trending | Không |
-| GET | `/api/search/newest` | Khóa học mới nhất | Không |
-| GET | `/api/search/top-rated` | Khóa học đánh giá cao | Không |
-| GET | `/api/search/free` | Khóa học miễn phí | Không |
-
-### AI (Ngữ cảnh người dùng)
+### Search & Discovery
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| POST | `/api/ai/exercises/generate` | Tạo bài tập bằng AI | User/Admin |
-| POST | `/api/ai/exercises/save` | Lưu bài tập AI | User/Admin |
+|--------|----------|-------|------|
+| GET | `/api/search` | Tìm kiếm khóa học | — |
+| GET | `/api/search/suggestions` | Gợi ý từ khóa | — |
+| GET | `/api/search/trending` | Khóa học trending | — |
+| GET | `/api/search/newest` | Khóa học mới nhất | — |
+| GET | `/api/search/top-rated` | Khóa học đánh giá cao | — |
+| GET | `/api/search/free` | Khóa học miễn phí | — |
+| GET | `/api/recommendations/public` | Gợi ý public | — |
+| GET | `/api/recommendations` | Gợi ý cá nhân hóa | User |
+
+### AI
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| POST | `/api/ai/exercises/generate` | Sinh bài tập bằng Gemini | User |
+| POST | `/api/ai/exercises/save` | Lưu bài tập AI | User |
+
+### User Follow
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/api/users/popular` | Danh sách user phổ biến | User |
+| POST | `/api/users/:userId/follow` | Follow user | User |
+| DELETE | `/api/users/:userId/follow` | Unfollow user | User |
+
+### Teacher / Creator
+
+> Mọi `user` đã đăng nhập đều có thể truy cập các endpoint này cho khóa học do mình sở hữu; `admin` có thêm quyền trên mọi khóa học.
+
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | `/api/teacher/dashboard` | Dashboard thống kê | User/Admin |
+| GET | `/api/teacher/courses` | Danh sách khóa học | User/Admin |
+| POST | `/api/teacher/courses` | Tạo khóa học | User/Admin |
+| GET | `/api/teacher/courses/:id` | Chi tiết khóa học | User/Admin |
+| PATCH | `/api/teacher/courses/:id` | Cập nhật khóa học | User/Admin |
+| DELETE | `/api/teacher/courses/:id` | Xóa khóa học | User/Admin |
+| POST | `/api/teacher/upload` | Upload file lên Cloudinary | User/Admin |
+| POST | `/api/teacher/courses/:courseId/chapters` | Thêm chương | User/Admin |
+| POST | `/api/teacher/chapters/:chapterId/lessons` | Thêm bài học | User/Admin |
+| POST | `/api/teacher/lessons/:lessonId/exercises` | Thêm bài tập | User/Admin |
+| GET | `/api/teacher/courses/:courseId/students` | Danh sách học viên | User/Admin |
 
 ### Admin
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
+|--------|----------|-------|------|
 | GET | `/api/admin/stats` | Thống kê tổng quan | Admin |
 | GET | `/api/admin/courses` | Danh sách tất cả khóa học | Admin |
 | PATCH | `/api/admin/courses/:courseId/approve` | Duyệt khóa học | Admin |
 | PATCH | `/api/admin/courses/:courseId/reject` | Từ chối khóa học | Admin |
 | GET | `/api/admin/users` | Danh sách người dùng | Admin |
 
-### Khu tạo khóa học của user
+### Health
 
 | Method | Endpoint | Mô tả | Auth |
-|--------|----------|--------|------|
-| GET | `/api/teacher/dashboard` | Dashboard quản lý khóa học | User/Admin |
-| GET | `/api/teacher/courses` | Danh sách khóa học do user sở hữu | User/Admin |
-| POST | `/api/teacher/courses` | Tạo khóa học | User/Admin |
-| GET | `/api/teacher/courses/:id` | Chi tiết khóa học | User/Admin |
-| PATCH | `/api/teacher/courses/:id` | Cập nhật khóa học | User/Admin |
-| DELETE | `/api/teacher/courses/:id` | Xóa khóa học | User/Admin |
-| POST | `/api/teacher/upload` | Upload file (video/PDF) | User/Admin |
-| POST | `/api/teacher/courses/:courseId/chapters` | Thêm chương | User/Admin |
-| POST | `/api/teacher/chapters/:chapterId/lessons` | Thêm bài học | User/Admin |
-| POST | `/api/teacher/lessons/:lessonId/exercises` | Thêm bài tập | User/Admin |
-| GET | `/api/teacher/courses/:courseId/students` | Danh sách học viên của khóa học | User/Admin |
+|--------|----------|-------|------|
+| GET | `/api/health` | Trạng thái server + Redis | — |
 
 ---
 
-## 🚀 Deployment
-
-### Frontend — Vercel
-
-```bash
-cd frontend
-npm i -g vercel
-vercel --prod
-
-# Hoặc kết nối GitHub repo với Vercel
-# Vercel sẽ auto-deploy khi push lên main branch
-```
-
-Cần thiết lập biến môi trường trên Vercel:
-- `NEXT_PUBLIC_API_URL=/api`
-- `NEXT_PUBLIC_BACKEND_ORIGIN=https://your-backend.onrender.com`
-- `NEXT_PUBLIC_SOCKET_URL=/socket.io`
-
-Khuyến nghị dùng rewrite `/api` như trên để cookie đăng nhập được lưu theo domain frontend. Nếu bạn gọi thẳng backend bằng `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api`, backend phải đặt `AUTH_COOKIE_SECURE=true` và `AUTH_COOKIE_SAME_SITE=none`.
-
-### Backend — Render / Railway
-
-```bash
-# Render
-# 1. Tạo Web Service trên Render
-# 2. Kết nối GitHub repo
-# 3. Build command: npm install && npm start
-# 4. Environment variables: điền các biến trong .env.example
-
-# Railway
-# 1. Tạo project trên Railway
-# 2. Thêm PostgreSQL (hoặc dùng MongoDB Atlas)
-# 3. Deploy từ GitHub
-```
-
-Biến production quan trọng cho backend:
-
-```env
-FRONTEND_URL=https://edunest-frontend-kappa.vercel.app
-BACKEND_URL=https://your-backend.onrender.com
-AUTH_COOKIE_SECURE=true
-AUTH_COOKIE_SAME_SITE=lax
-```
-
-Không đặt `AUTH_COOKIE_DOMAIN` trừ khi frontend và backend dùng chung custom parent domain.
-
-### Database — MongoDB Atlas
-
-```bash
-# 1. Tạo cluster miễn phí trên MongoDB Atlas (mongodb.com)
-# 2. Tạo database user
-# 3. Lấy connection string:
-# mongodb+srv://<username>:<password>@cluster.mongodb.net/edunest
-# 4. Điền vào MONGODB_URI trong root .env
-```
-
-Local Docker Compose intentionally does not enable MongoDB auth. Atlas/production should always use a database user and password in `MONGODB_URI`.
-
-
-## 🧪 Testing
+## Testing
 
 ```bash
 cd backend
@@ -567,18 +512,117 @@ npm test
 
 # Với coverage
 npm run test:coverage
+
+# Kiểm tra tài khoản demo (sau khi seed)
+npm run verify-demo-users
 ```
 
+Test suite dùng Jest + Supertest + mongodb-memory-server, gồm 5 file:
+
+- `auth.test.js` — đăng ký, đăng nhập, JWT, refresh, Google OAuth, sessions
+- `enrollment.test.js` — đăng ký khóa học, tiến độ, hoàn thành bài
+- `exercise.test.js` — chấm điểm bài tập
+- `payment.test.js` — tạo payment, mock-success, lịch sử
+- `aiExercise.test.js` — sinh bài tập AI (mock mode)
+
 ---
 
+## Deployment
 
+| Thành phần | Nhà cung cấp | Ghi chú |
+|------------|--------------|---------|
+| Frontend | **Vercel** | `edunest-frontend-kappa.vercel.app` |
+| Backend | **Render** | `edunest-backend-ytfb.onrender.com` |
+| Database | **MongoDB Atlas** | M0 (Free tier) |
+| Cache | **Upstash Redis** | TLS, region Singapore |
+| Media | **Cloudinary** | Video / image / PDF |
+| AI | **Google Gemini API** | `gemini-2.5-flash` |
+| Email | **Brevo SMTP** | Xác minh, reset password |
+| Payment | **VNPay Sandbox** | sandbox.vnpayment.vn |
 
-## 📄 License
+### Frontend — Vercel
 
-MIT License — xem file [LICENSE](LICENSE) để biết chi tiết.
+1. Vercel Dashboard → **Add New Project** → import repo `Edunest`.
+2. **Root Directory:** `frontend`
+3. **Framework Preset:** Next.js (tự nhận)
+
+Biến môi trường:
+
+| Biến | Giá trị |
+|------|---------|
+| `NEXT_PUBLIC_API_URL` | `/api` |
+| `NEXT_PUBLIC_BACKEND_ORIGIN` | `https://edunest-backend-ytfb.onrender.com` |
+| `NEXT_PUBLIC_SOCKET_URL` | `/socket.io` |
+| `NEXT_UPLOAD_MAX_BODY_SIZE` | `1024mb` |
+
+### Backend — Render
+
+1. Render Dashboard → **New Web Service** → connect repo `Edunest`.
+2. **Root Directory:** `backend` | **Runtime:** Node | **Build:** `npm install` | **Start:** `npm start`
+3. **Health Check Path:** `/api/health`
+
+Biến môi trường bắt buộc:
+
+| Biến | Giá trị |
+|------|---------|
+| `NODE_ENV` | `production` |
+| `PORT` | `10000` |
+| `MONGODB_URI` | connection string MongoDB Atlas |
+| `JWT_SECRET` | chuỗi ngẫu nhiên mạnh |
+| `JWT_REFRESH_SECRET` | chuỗi ngẫu nhiên mạnh khác |
+| `FRONTEND_URL` | `https://edunest-frontend-kappa.vercel.app` |
+| `BACKEND_URL` | `https://edunest-backend-ytfb.onrender.com` |
+| `AUTH_COOKIE_SECURE` | `true` |
+| `AUTH_COOKIE_SAME_SITE` | `lax` |
+| `GOOGLE_CALLBACK_URL` | `https://edunest-frontend-kappa.vercel.app/api/auth/google/callback` |
+| `REDIS_URL` | Upstash Redis URL (`rediss://...`) |
+| `REDIS_TLS` | `true` |
+
+Biến tùy chọn:
+
+- **Cloudinary:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+- **Gemini:** `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-2.5-flash`, `AI_MOCK_MODE=false`
+- **Brevo SMTP:** `SMTP_FROM`, `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER`, `SMTP_PASS`
+- **VNPay:** `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_URL`, `VNPAY_RETURN_URL`
+- **Google OAuth:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+
+> Backend có `assertProductionConfig()` chạy lúc khởi động, sẽ throw nếu phát hiện cấu hình không hợp lệ (ví dụ `BACKEND_URL` trỏ localhost, `AUTH_COOKIE_SECURE=false`, Upstash không dùng TLS…).
+
+### Database — MongoDB Atlas
+
+1. Tạo cluster **M0 (Free)** tại [cloud.mongodb.com](https://cloud.mongodb.com).
+2. **Database Access:** tạo user riêng cho ứng dụng với password mạnh.
+3. **Network Access:** thêm `0.0.0.0/0` (Render có IP động).
+4. Connection string:
+   ```
+   mongodb+srv://<user>:<password>@<cluster>.mongodb.net/edunest?retryWrites=true&w=majority
+   ```
+5. **Không chạy `npm run seed`** trên production — script này `dropDatabase()` toàn bộ.
+
+### Cache — Upstash Redis
+
+1. Tạo database Redis tại [console.upstash.com](https://console.upstash.com), chọn region Singapore.
+2. Copy `REDIS_URL` dạng `rediss://default:<password>@<host>.upstash.io:6379` vào biến môi trường Render.
+3. Đặt `REDIS_TLS=true`.
+
+> Nếu Redis không khả dụng, `cacheService.js` có fallback graceful — endpoint tự query MongoDB trực tiếp.
+
+### Các dịch vụ phụ trợ
+
+- **Cloudinary:** [cloudinary.com](https://cloudinary.com) → copy Cloud name, API Key, API Secret.
+- **Google Gemini:** [aistudio.google.com](https://aistudio.google.com/app/apikey) → lấy API key.
+- **Brevo SMTP:** [brevo.com](https://www.brevo.com) → SMTP & API → tạo SMTP user.
+- **Google OAuth:** [console.cloud.google.com](https://console.cloud.google.com) → OAuth Client với redirect URI `https://edunest-frontend-kappa.vercel.app/api/auth/google/callback`.
+- **VNPay Sandbox:** [sandbox.vnpayment.vn](https://sandbox.vnpayment.vn) → lấy `TMN_CODE` và `HASH_SECRET`.
 
 ---
 
-## 👨‍💻 Authors
+## License
+
+MIT License — xem file [LICENSE](LICENSE).
+
+---
+
+## Authors
 
 Edunest Development Team
