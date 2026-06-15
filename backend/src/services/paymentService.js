@@ -26,7 +26,7 @@ function getCoursePrice(course) {
 }
 
 function getVNPayReturnUrl() {
-  return config.vnpay.returnUrl || `${process.env.BACKEND_URL || "http://localhost:5000"}/api/payments/vnpay/return`;
+  return config.vnpay.returnUrl || `${config.urls.backend}/api/payments/vnpay/return`;
 }
 
 // Tao thanh toan tu gio hang

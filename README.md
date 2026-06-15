@@ -514,7 +514,11 @@ vercel --prod
 ```
 
 Cần thiết lập biến môi trường trên Vercel:
-- `NEXT_PUBLIC_API_URL` → URL của backend (VD: `https://your-backend.onrender.com/api`)
+- `NEXT_PUBLIC_API_URL=/api`
+- `NEXT_PUBLIC_BACKEND_ORIGIN=https://your-backend.onrender.com`
+- `NEXT_PUBLIC_SOCKET_URL=/socket.io`
+
+Khuyến nghị dùng rewrite `/api` như trên để cookie đăng nhập được lưu theo domain frontend. Nếu bạn gọi thẳng backend bằng `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api`, backend phải đặt `AUTH_COOKIE_SECURE=true` và `AUTH_COOKIE_SAME_SITE=none`.
 
 ### Backend — Render / Railway
 
@@ -530,6 +534,17 @@ Cần thiết lập biến môi trường trên Vercel:
 # 2. Thêm PostgreSQL (hoặc dùng MongoDB Atlas)
 # 3. Deploy từ GitHub
 ```
+
+Biến production quan trọng cho backend:
+
+```env
+FRONTEND_URL=https://edunest-frontend-kappa.vercel.app
+BACKEND_URL=https://your-backend.onrender.com
+AUTH_COOKIE_SECURE=true
+AUTH_COOKIE_SAME_SITE=lax
+```
+
+Không đặt `AUTH_COOKIE_DOMAIN` trừ khi frontend và backend dùng chung custom parent domain.
 
 ### Database — MongoDB Atlas
 

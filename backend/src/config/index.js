@@ -27,6 +27,10 @@ const config = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || "development",
   mongodbUri: process.env.MONGODB_URI || "mongodb://localhost:27017/edunest",
+  urls: {
+    frontend: frontendUrl,
+    backend: backendUrl,
+  },
   jwt: {
     secret: process.env.JWT_SECRET,
     refreshSecret: process.env.JWT_REFRESH_SECRET,
