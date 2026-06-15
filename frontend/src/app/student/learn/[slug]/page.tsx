@@ -63,18 +63,34 @@ function getEmbeddableVideoUrl(url?: string) {
   }
 }
 
-function canEmbedDocument(url?: string) {
-  if (!url) return false;
+function getDocumentFilename(title?: string, url?: string) {
+  const fallbackName = "tai-lieu-bai-hoc";
+  const safeTitle = (title || fallbackName)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .toLowerCase();
 
+  let extension = "pdf";
   try {
-    const parsed = new URL(url);
-    return (
-      parsed.pathname.toLowerCase().endsWith(".pdf") ||
-      (parsed.hostname.includes("cloudinary.com") && parsed.pathname.includes("/image/upload/"))
-    );
+    const pathname = new URL(url || "").pathname;
+    const match = pathname.match(/\.([a-zA-Z0-9]+)$/);
+    if (match?.[1]) extension = match[1].toLowerCase();
   } catch {
-    return false;
+    // Keep PDF as the default for course documents.
   }
+
+  return `${safeTitle || fallbackName}.${extension}`;
+}
+
+function getDocumentDownloadHref(url: string, title?: string) {
+  const params = new URLSearchParams({
+    url,
+    filename: getDocumentFilename(title, url),
+  });
+  return `/api/download-document?${params.toString()}`;
 }
 
 function isAiExercise(exercise: Exercise) {
@@ -204,6 +220,9 @@ export default function LearnCoursePage() {
 
   const activeLessonEmbedUrl = useMemo(() => getEmbeddableVideoUrl(activeLesson?.videoUrl), [activeLesson?.videoUrl]);
   const activeLessonDocumentUrl = activeLesson?.documentUrl || activeLesson?.pdfUrl || "";
+  const activeLessonDocumentDownloadHref = activeLessonDocumentUrl
+    ? getDocumentDownloadHref(activeLessonDocumentUrl, activeLesson?.title)
+    : "";
   const canGenerateAIExercise = Boolean(
     activeLesson &&
       activeLesson.documentType === "pdf" &&
@@ -501,12 +520,16 @@ export default function LearnCoursePage() {
               <video src={activeLesson.videoUrl} controls className="aspect-video w-full bg-black object-contain" />
             )}
           </div>
-        ) : activeLessonDocumentUrl && canEmbedDocument(activeLessonDocumentUrl) ? (
-          <iframe
-            src={activeLessonDocumentUrl}
-            title={activeLesson.title}
-            className="h-[620px] w-full rounded-lg border border-border bg-white"
-          />
+        ) : activeLessonDocumentUrl ? (
+          <div className="min-h-[220px] rounded-lg border border-border bg-surface/40 p-6">
+            <div className="flex h-full min-h-[170px] flex-col items-center justify-center text-center">
+              <FileText className="h-12 w-12 text-primary-600" />
+              <p className="mt-3 font-semibold text-foreground">Tai lieu bai hoc</p>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                Bam nut tai ben duoi de luu tai lieu ve may.
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="min-h-[320px] rounded-lg border border-border bg-surface/40 p-5">
             <p className="whitespace-pre-wrap text-sm leading-7 text-foreground">
@@ -524,11 +547,13 @@ export default function LearnCoursePage() {
                 <p className="truncate text-sm text-muted-foreground">{activeLessonDocumentUrl}</p>
               </div>
             </div>
-            <Button asChild variant="outline" size="sm" leftIcon={<FileText className="h-4 w-4" />}>
-              <a href={activeLessonDocumentUrl} target="_blank" rel="noreferrer">
-                Xem tài liệu
-              </a>
-            </Button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Button asChild size="sm" leftIcon={<FileText className="h-4 w-4" />}>
+                <a href={activeLessonDocumentDownloadHref}>
+                  Tải PDF
+                </a>
+              </Button>
+            </div>
           </div>
         ) : null}
 

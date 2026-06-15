@@ -20,6 +20,85 @@ function hasCourse(certificate: Certificate): certificate is CertificateWithGrad
   return typeof certificate.course !== "string" && Boolean(certificate.course);
 }
 
+function stripVietnamese(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .replace(/[^\x20-\x7E]/g, "");
+}
+
+function escapePdfText(value: string) {
+  return stripVietnamese(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function createCertificatePdf(certificate: CertificateWithGrade, studentName: string) {
+  const issuedDate = new Date(certificate.issuedAt).toLocaleDateString("vi-VN");
+  const lines = [
+    { text: "EDUNEST", size: 28, x: 238, y: 760 },
+    { text: "CERTIFICATE OF COMPLETION", size: 24, x: 122, y: 705 },
+    { text: "This certifies that", size: 13, x: 238, y: 650 },
+    { text: studentName || "Student", size: 24, x: 120, y: 610 },
+    { text: "has successfully completed the course", size: 13, x: 190, y: 565 },
+    { text: certificate.course.title, size: 20, x: 92, y: 525 },
+    { text: `Certificate ID: ${certificate.certificateId}`, size: 11, x: 72, y: 455 },
+    { text: `Issued date: ${issuedDate}`, size: 11, x: 72, y: 430 },
+    {
+      text: `Grade: ${typeof certificate.grade === "number" ? `${certificate.grade}/100` : "-"}`,
+      size: 11,
+      x: 72,
+      y: 405,
+    },
+  ];
+
+  const textCommands = lines
+    .map(({ text, size, x, y }) => `BT /F1 ${size} Tf ${x} ${y} Td (${escapePdfText(text)}) Tj ET`)
+    .join("\n");
+
+  const content = [
+    "0.8 0.88 1 rg 36 36 523 770 re f",
+    "1 1 1 rg 54 54 487 734 re f",
+    "0.22 0.29 0.72 RG 3 w 54 54 487 734 re S",
+    "0.10 0.11 0.18 rg",
+    textCommands,
+    "0.22 0.29 0.72 RG 1.2 w 72 490 451 0 m S",
+  ].join("\n");
+
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+  ];
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${offset.toString().padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function CertificatesPage() {
   const user = useAuthStore((state) => state.user);
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,8 +153,12 @@ export default function CertificatesPage() {
     return Math.round(grades.reduce((sum, grade) => sum + grade, 0) / grades.length);
   }, [certificates]);
 
-  const handleDownload = (certId: string) => {
-    console.log("Download certificate:", certId);
+  const handleDownload = (certificate: CertificateWithGrade) => {
+    const blob = createCertificatePdf(certificate, user?.name ?? "Hoc vien");
+    const safeCourseSlug =
+      certificate.course.slug ||
+      stripVietnamese(certificate.course.title).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    downloadBlob(blob, `certificate-${safeCourseSlug}-${certificate.certificateId}.pdf`);
   };
 
   const handleShare = (certId: string) => {
@@ -197,7 +280,7 @@ export default function CertificatesPage() {
                     <Button
                       className="flex-1"
                       size="sm"
-                      onClick={() => handleDownload(certificate._id)}
+                      onClick={() => handleDownload(certificate)}
                       leftIcon={<Download className="h-4 w-4" />}
                     >
                       Tải về
