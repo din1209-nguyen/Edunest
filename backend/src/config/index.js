@@ -8,11 +8,19 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 const isProduction = process.env.NODE_ENV === "production";
-const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
-const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+const trimTrailingSlash = (value) => value.trim().replace(/\/+$/, "");
+const readUrl = (value, fallback) => trimTrailingSlash(value || fallback);
+const frontendUrl = readUrl(
+  process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL,
+  "http://localhost:3001",
+);
+const backendUrl = readUrl(
+  process.env.BACKEND_URL,
+  `http://localhost:${process.env.PORT || 5000}`,
+);
 const parseBoolean = (value, fallback = false) => {
   if (typeof value !== "string") return fallback;
-  return value === "true";
+  return value.trim().toLowerCase() === "true";
 };
 
 const config = {
@@ -56,7 +64,7 @@ const config = {
     tmnCode: process.env.VNPAY_TMN_CODE,
     hashSecret: process.env.VNPAY_HASH_SECRET,
     url: process.env.VNPAY_URL,
-    returnUrl: process.env.VNPAY_RETURN_URL,
+    returnUrl: process.env.VNPAY_RETURN_URL?.trim(),
   },
   ai: {
     mockMode: process.env.AI_MOCK_MODE === "true",
@@ -68,7 +76,10 @@ const config = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackUrl: process.env.GOOGLE_CALLBACK_URL || `${backendUrl}/api/auth/google/callback`,
+    callbackUrl: readUrl(
+      process.env.GOOGLE_CALLBACK_URL,
+      `${backendUrl}/api/auth/google/callback`,
+    ),
   },
 };
 

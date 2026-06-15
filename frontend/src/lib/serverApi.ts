@@ -34,6 +34,11 @@ function resolveBackendOrigin() {
 
 const API_URL = resolveBackendOrigin();
 
+export function buildBackendApiUrl(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_URL}/api${normalizedPath}`;
+}
+
 export async function requestBackendJson(path: string, init: RequestInit = {}) {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore
@@ -51,7 +56,7 @@ export async function requestBackendJson(path: string, init: RequestInit = {}) {
 
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/api${path}`, {
+    response = await fetch(buildBackendApiUrl(path), {
       ...init,
       headers,
       cache: "no-store",
