@@ -19,6 +19,7 @@ async function layBaiTapTheoBaiHoc(userId, lessonId) {
   const exercises = await Exercise.find({
     lesson: lessonId,
     isPublished: true,
+    contentStatus: { $ne: "pending" },
   })
     .select("-questions.correctAnswers")
     .lean();
@@ -31,7 +32,7 @@ async function layBaiTapTheoBaiHoc(userId, lessonId) {
 }
 
 async function layBaiTapChiTiet(userId, baiTapId) {
-  const exercise = await Exercise.findOne({ _id: baiTapId, isPublished: true });
+  const exercise = await Exercise.findOne({ _id: baiTapId, isPublished: true, contentStatus: { $ne: "pending" } });
 
   if (!exercise) {
     const err = new Error("Không tìm thấy bài tập");
@@ -45,7 +46,7 @@ async function layBaiTapChiTiet(userId, baiTapId) {
 }
 
 async function nopBaiTap(userId, baiTapId, answers) {
-  const exercise = await Exercise.findOne({ _id: baiTapId, isPublished: true });
+  const exercise = await Exercise.findOne({ _id: baiTapId, isPublished: true, contentStatus: { $ne: "pending" } });
 
   if (!exercise) {
     const err = new Error("Không tìm thấy bài tập");

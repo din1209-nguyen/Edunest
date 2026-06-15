@@ -53,6 +53,29 @@ async function invalidateCourseCaches(courseRecord) {
   ]);
 }
 
+function isPublishedRevision(courseRecord) {
+  return courseRecord.status === "published" || (courseRecord.status === "pending" && Boolean(courseRecord.reviewedAt));
+}
+
+function isPendingContent(record) {
+  return record.contentStatus === "pending";
+}
+
+function pickPublishedCourseUpdate(courseData) {
+  const allowedFields = ["price", "discountPrice", "isFree"];
+  return Object.fromEntries(
+    Object.entries(courseData).filter(([fieldName, value]) => allowedFields.includes(fieldName) && value !== undefined),
+  );
+}
+
+async function approvePendingContent(courseId) {
+  await Promise.all([
+    Chapter.updateMany({ course: courseId, contentStatus: "pending" }, { $set: { contentStatus: "approved" } }),
+    Lesson.updateMany({ course: courseId, contentStatus: "pending" }, { $set: { contentStatus: "approved" } }),
+    Exercise.updateMany({ course: courseId, contentStatus: "pending" }, { $set: { contentStatus: "approved" } }),
+  ]);
+}
+
 async function createCourse(teacherId, courseData) {
   const courseRecord = await Course.create({
     ...courseData,
@@ -702,26 +725,283 @@ async function getTeacherDashboard(teacherId) {
   });
 }
 
+async function updateCourseV2(courseId, teacherId, courseData) {
+  const courseRecord = await Course.findOne({ _id: courseId, instructor: teacherId });
+  if (!courseRecord) {
+    throw createNotFoundError("Không tìm thấy khóa học hoặc bạn không có quyền sửa");
+  }
+
+  if (courseRecord.status === "banned" || courseRecord.status === "locked") {
+    throw createBadRequestError("Không thể sửa khóa học đã bị khóa");
+  }
+
+  if (isPublishedRevision(courseRecord)) {
+    const allowedUpdate = pickPublishedCourseUpdate(courseData);
+    if (Object.keys(allowedUpdate).length === 0) {
+      throw createBadRequestError("Khóa học đã xuất bản chỉ được phép sửa giá");
+    }
+
+    if (allowedUpdate.price !== undefined) courseRecord.pendingPrice = allowedUpdate.price;
+    if (allowedUpdate.discountPrice !== undefined) courseRecord.pendingDiscountPrice = allowedUpdate.discountPrice;
+    if (allowedUpdate.isFree !== undefined) courseRecord.pendingIsFree = allowedUpdate.isFree;
+    await courseRecord.save();
+    await invalidateCourseCaches(courseRecord);
+    return courseRecord.populate("instructor", "name email avatar");
+  }
+
+  Object.keys(courseData).forEach((fieldName) => {
+    if (courseData[fieldName] !== undefined) courseRecord[fieldName] = courseData[fieldName];
+  });
+
+  await courseRecord.save();
+  await invalidateCourseCaches(courseRecord);
+  return courseRecord.populate("instructor", "name email avatar");
+}
+
+async function submitCourseForReviewV2(courseId, teacherId, reviewNotes = "") {
+  const courseRecord = await Course.findOne({ _id: courseId, instructor: teacherId });
+  if (!courseRecord) {
+    throw createNotFoundError("Không tìm thấy khóa học");
+  }
+
+  if (courseRecord.status !== "draft" && courseRecord.status !== "rejected" && !isPublishedRevision(courseRecord)) {
+    throw createBadRequestError("Chỉ khóa học ở trạng thái nháp, bị từ chối hoặc bản cập nhật đã xuất bản mới có thể gửi duyệt");
+  }
+
+  if (!courseRecord.thumbnail) {
+    throw createBadRequestError("Vui lòng thêm thumbnail trước khi gửi duyệt");
+  }
+
+  const chapterRecords = await Chapter.find({ course: courseId });
+  if (chapterRecords.length === 0) {
+    throw createBadRequestError("Vui lòng thêm ít nhất 1 chương trước khi gửi duyệt");
+  }
+
+  const lessonCount = await Lesson.countDocuments({ course: courseId });
+  if (lessonCount === 0) {
+    throw createBadRequestError("Vui lòng thêm ít nhất 1 bài học trước khi gửi duyệt");
+  }
+
+  courseRecord.status = "pending";
+  courseRecord.rejectionReason = "";
+  courseRecord._reviewNotes = reviewNotes;
+  await courseRecord.save();
+  await invalidateCourseCaches(courseRecord);
+
+  return courseRecord.populate("instructor", "name email avatar");
+}
+
+async function createChapterV2(courseId, teacherId, chapterData) {
+  const courseRecord = await Course.findOne({ _id: courseId, instructor: teacherId });
+  if (!courseRecord) {
+    throw createNotFoundError("Không tìm thấy khóa học hoặc bạn không có quyền");
+  }
+  if (courseRecord.status === "banned" || courseRecord.status === "locked") {
+    throw createBadRequestError("Không thể thêm chương vào khóa học đã bị khóa");
+  }
+
+  const maxOrderRecord = await Chapter.findOne({ course: courseId }).sort({ order: -1 }).select("order");
+  const nextOrder = chapterData.order !== undefined ? chapterData.order : (maxOrderRecord?.order ?? -1) + 1;
+  const isRevision = isPublishedRevision(courseRecord);
+
+  const chapterRecord = await Chapter.create({
+    ...chapterData,
+    course: courseId,
+    order: nextOrder,
+    contentStatus: isRevision ? "pending" : "approved",
+  });
+
+  await invalidateCourseCaches(courseRecord);
+  return chapterRecord;
+}
+
+async function updateChapterV2(chapterId, teacherId, chapterData) {
+  const chapterRecord = await Chapter.findById(chapterId).populate("course");
+  if (!chapterRecord) throw createNotFoundError("Không tìm thấy chương");
+
+  const courseRecord = await Course.findOne({ _id: chapterRecord.course._id, instructor: teacherId });
+  if (!courseRecord) throw createForbiddenError("Bạn không có quyền sửa chương này");
+  if (isPublishedRevision(courseRecord) && !isPendingContent(chapterRecord)) {
+    throw createBadRequestError("Không thể sửa chương cũ của khóa học đã xuất bản");
+  }
+
+  Object.keys(chapterData).forEach((fieldName) => {
+    if (chapterData[fieldName] !== undefined) chapterRecord[fieldName] = chapterData[fieldName];
+  });
+  await chapterRecord.save();
+  await invalidateCourseCaches(courseRecord);
+  return chapterRecord;
+}
+
+async function deleteChapterV2(chapterId, teacherId) {
+  const chapterRecord = await Chapter.findById(chapterId).populate("course");
+  if (!chapterRecord) throw createNotFoundError("Không tìm thấy chương");
+
+  const courseRecord = await Course.findOne({ _id: chapterRecord.course._id, instructor: teacherId });
+  if (!courseRecord) throw createForbiddenError("Bạn không có quyền xóa chương này");
+  if (isPublishedRevision(courseRecord) && !isPendingContent(chapterRecord)) {
+    throw createBadRequestError("Không thể xóa chương cũ của khóa học đã xuất bản");
+  }
+
+  await Exercise.deleteMany({ lesson: { $in: await Lesson.find({ chapter: chapterId }).distinct("_id") } });
+  await Lesson.deleteMany({ chapter: chapterId });
+  await Chapter.deleteOne({ _id: chapterId });
+  await invalidateCourseCaches(courseRecord);
+  return { message: "Xóa chương thành công" };
+}
+
+async function createLessonV2(chapterId, teacherId, lessonData) {
+  const chapterRecord = await Chapter.findById(chapterId).populate("course");
+  if (!chapterRecord) throw createNotFoundError("Không tìm thấy chương");
+
+  const courseRecord = await Course.findOne({ _id: chapterRecord.course._id, instructor: teacherId });
+  if (!courseRecord) throw createForbiddenError("Bạn không có quyền thêm bài học");
+  const isRevision = isPublishedRevision(courseRecord);
+  if (isRevision && !isPendingContent(chapterRecord)) {
+    throw createBadRequestError("Chỉ được thêm bài học vào chương mới đang chờ duyệt");
+  }
+
+  const maxOrderRecord = await Lesson.findOne({ chapter: chapterId }).sort({ order: -1 }).select("order");
+  const nextOrder = lessonData.order !== undefined ? lessonData.order : (maxOrderRecord?.order ?? -1) + 1;
+  const lessonRecord = await Lesson.create({
+    ...lessonData,
+    chapter: chapterId,
+    course: chapterRecord.course._id,
+    order: nextOrder,
+    contentStatus: isRevision ? "pending" : "approved",
+  });
+
+  await Course.findByIdAndUpdate(chapterRecord.course._id, {
+    $inc: { totalLessons: 1, totalDuration: lessonData.videoDuration || 0 },
+  });
+  await invalidateCourseCaches(courseRecord);
+  return lessonRecord;
+}
+
+async function updateLessonV2(lessonId, teacherId, lessonData) {
+  const lessonRecord = await Lesson.findById(lessonId).populate({ path: "chapter", populate: { path: "course" } });
+  if (!lessonRecord) throw createNotFoundError("Không tìm thấy bài học");
+
+  const courseRecord = await Course.findOne({ _id: lessonRecord.chapter.course._id, instructor: teacherId });
+  if (!courseRecord) throw createForbiddenError("Bạn không có quyền sửa bài học này");
+  if (isPublishedRevision(courseRecord) && !isPendingContent(lessonRecord)) {
+    throw createBadRequestError("Không thể sửa bài học cũ của khóa học đã xuất bản");
+  }
+
+  if (lessonData.videoDuration !== undefined && lessonData.videoDuration !== lessonRecord.videoDuration) {
+    await Course.findByIdAndUpdate(courseRecord._id, {
+      $inc: { totalDuration: lessonData.videoDuration - lessonRecord.videoDuration },
+    });
+  }
+
+  Object.keys(lessonData).forEach((fieldName) => {
+    if (lessonData[fieldName] !== undefined) lessonRecord[fieldName] = lessonData[fieldName];
+  });
+  await lessonRecord.save();
+  await invalidateCourseCaches(courseRecord);
+  return lessonRecord;
+}
+
+async function deleteLessonV2(lessonId, teacherId) {
+  const lessonRecord = await Lesson.findById(lessonId).populate({ path: "chapter", populate: { path: "course" } });
+  if (!lessonRecord) throw createNotFoundError("Không tìm thấy bài học");
+
+  const courseRecord = await Course.findOne({ _id: lessonRecord.chapter.course._id, instructor: teacherId });
+  if (!courseRecord) throw createForbiddenError("Bạn không có quyền xóa bài học này");
+  if (isPublishedRevision(courseRecord) && !isPendingContent(lessonRecord)) {
+    throw createBadRequestError("Không thể xóa bài học cũ của khóa học đã xuất bản");
+  }
+
+  await Exercise.deleteMany({ lesson: lessonId });
+  await Lesson.deleteOne({ _id: lessonId });
+  await Course.findByIdAndUpdate(courseRecord._id, {
+    $inc: { totalLessons: -1, totalDuration: -lessonRecord.videoDuration },
+  });
+  await invalidateCourseCaches(courseRecord);
+  return { message: "Xóa bài học thành công" };
+}
+
+async function createExerciseV2(lessonId, teacherId, exerciseData) {
+  const lessonRecord = await Lesson.findById(lessonId).populate({ path: "chapter", populate: { path: "course" } });
+  if (!lessonRecord) throw createNotFoundError("Không tìm thấy bài học");
+
+  const courseRecord = await Course.findOne({ _id: lessonRecord.chapter.course._id, instructor: teacherId });
+  if (!courseRecord) throw createForbiddenError("Bạn không có quyền thêm bài tập");
+  const isRevision = isPublishedRevision(courseRecord);
+  if (isRevision && !isPendingContent(lessonRecord)) {
+    throw createBadRequestError("Chỉ được thêm bài tập vào bài học mới đang chờ duyệt");
+  }
+
+  const exerciseRecord = await Exercise.create({
+    ...exerciseData,
+    lesson: lessonId,
+    course: lessonRecord.chapter.course._id,
+    contentStatus: isRevision ? "pending" : "approved",
+  });
+
+  await invalidateCourseCaches(courseRecord);
+  return exerciseRecord;
+}
+
+async function updateExerciseV2(exerciseId, teacherId, exerciseData) {
+  const exerciseRecord = await Exercise.findById(exerciseId).populate({
+    path: "lesson",
+    populate: { path: "chapter", populate: { path: "course" } },
+  });
+  if (!exerciseRecord) throw createNotFoundError("Không tìm thấy bài tập");
+
+  const courseRecord = await Course.findOne({ _id: exerciseRecord.lesson.chapter.course._id, instructor: teacherId });
+  if (!courseRecord) throw createForbiddenError("Bạn không có quyền sửa bài tập này");
+  if (isPublishedRevision(courseRecord) && !isPendingContent(exerciseRecord)) {
+    throw createBadRequestError("Không thể sửa bài tập cũ của khóa học đã xuất bản");
+  }
+
+  Object.keys(exerciseData).forEach((fieldName) => {
+    if (exerciseData[fieldName] !== undefined) exerciseRecord[fieldName] = exerciseData[fieldName];
+  });
+  await exerciseRecord.save();
+  await invalidateCourseCaches(courseRecord);
+  return exerciseRecord;
+}
+
+async function deleteExerciseV2(exerciseId, teacherId) {
+  const exerciseRecord = await Exercise.findById(exerciseId).populate({
+    path: "lesson",
+    populate: { path: "chapter", populate: { path: "course" } },
+  });
+  if (!exerciseRecord) throw createNotFoundError("Không tìm thấy bài tập");
+
+  const courseRecord = await Course.findOne({ _id: exerciseRecord.lesson.chapter.course._id, instructor: teacherId });
+  if (!courseRecord) throw createForbiddenError("Bạn không có quyền xóa bài tập này");
+  if (isPublishedRevision(courseRecord) && !isPendingContent(exerciseRecord)) {
+    throw createBadRequestError("Không thể xóa bài tập cũ của khóa học đã xuất bản");
+  }
+
+  await Exercise.deleteOne({ _id: exerciseId });
+  await invalidateCourseCaches(courseRecord);
+  return { message: "Xóa bài tập thành công" };
+}
+
 export {
   createCourse,
   getTeacherCourses,
   getCourseById,
-  updateCourse,
+  updateCourseV2 as updateCourse,
   deleteCourse,
-  submitCourseForReview,
-  createChapter,
+  submitCourseForReviewV2 as submitCourseForReview,
+  createChapterV2 as createChapter,
   getCourseChapters,
-  updateChapter,
-  deleteChapter,
-  createLesson,
+  updateChapterV2 as updateChapter,
+  deleteChapterV2 as deleteChapter,
+  createLessonV2 as createLesson,
   getChapterLessons,
-  updateLesson,
-  deleteLesson,
-  createExercise,
+  updateLessonV2 as updateLesson,
+  deleteLessonV2 as deleteLesson,
+  createExerciseV2 as createExercise,
   getLessonExercises,
   getExerciseById,
-  updateExercise,
-  deleteExercise,
+  updateExerciseV2 as updateExercise,
+  deleteExerciseV2 as deleteExercise,
   getCourseStudents,
   banStudentFromCourse,
   inviteStudentToFreeCourse,

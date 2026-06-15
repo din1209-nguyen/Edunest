@@ -138,11 +138,11 @@ async function layKhoaHocTheoSlug(slugOrId, userId = null) {
       throw err;
     }
 
-    const chapters = await Chapter.find({ course: course._id, isPublished: true })
+    const chapters = await Chapter.find({ course: course._id, isPublished: true, contentStatus: { $ne: "pending" } })
       .sort({ order: 1 })
       .lean();
 
-    const lessons = await Lesson.find({ course: course._id, isPublished: true })
+    const lessons = await Lesson.find({ course: course._id, isPublished: true, contentStatus: { $ne: "pending" } })
       .sort({ chapter: 1, order: 1 })
       .lean();
 

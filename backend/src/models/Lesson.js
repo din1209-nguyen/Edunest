@@ -56,6 +56,11 @@ const lessonSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    contentStatus: {
+      type: String,
+      enum: ["approved", "pending"],
+      default: "approved",
+    },
     type: {
       type: String,
       enum: ["video", "document", "text", "quiz"],
