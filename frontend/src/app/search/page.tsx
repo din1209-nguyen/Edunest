@@ -13,6 +13,11 @@ import { useAuthStore } from "@/stores/auth";
 import { Search as SearchIcon, SlidersHorizontal, X, Grid3X3, List } from "lucide-react";
 import type { Category, Course, CourseLevel, PaginatedResponse, ApiResponse } from "@/types";
 
+type SearchResponse = ApiResponse<Course[]> & {
+  courses?: Course[];
+  pagination?: PaginatedResponse<Course>["pagination"];
+};
+
 const sortOptions = [
   { value: "relevance", label: "Liên quan" },
   { value: "students", label: "Phổ biến nhất" },
@@ -78,7 +83,7 @@ function SearchContent() {
         setError("");
 
         const [response, purchasedCourseIds] = await Promise.all([
-          api.get<PaginatedResponse<Course>>("/search", {
+          api.get<SearchResponse>("/search", {
             params: {
               q: searchQuery || undefined,
               category: filterCategory === "all" ? undefined : filterCategory,
@@ -94,11 +99,12 @@ function SearchContent() {
 
         if (!mounted) return;
 
+        const courses = response.data.courses ?? response.data.data ?? [];
         setResults(markPurchasedCourses(
-          (response.data.data ?? []).map(normalizeCourse),
+          courses.map(normalizeCourse),
           purchasedCourseIds,
         ));
-        setTotal(response.data.pagination?.total ?? response.data.data?.length ?? 0);
+        setTotal(response.data.pagination?.total ?? courses.length);
       } catch (err) {
         if (!mounted) return;
         console.error("Failed to search courses", err);

@@ -11,6 +11,10 @@ import {
 
 // ─── Search Courses (cached) ────────────────────────────────────────────────────
 
+function escapeRegex(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function searchCourses(query, filters = {}, options = {}) {
   // Only cache simple searches (no price range filters)
   const simpleSearch = !query && !filters?.minPrice && !filters?.maxPrice;
@@ -37,7 +41,16 @@ async function doSearchCourses(query, filters = {}, options = {}) {
   const skip = (page - 1) * limit;
   const searchQuery = {};
 
-  if (query) searchQuery.$text = { $search: query };
+  if (query) {
+    const keyword = new RegExp(escapeRegex(query.trim()), "i");
+    searchQuery.$or = [
+      { title: keyword },
+      { description: keyword },
+      { shortDescription: keyword },
+      { category: keyword },
+      { language: keyword },
+    ];
+  }
   if (category) searchQuery.category = new RegExp(category, "i");
   if (level) searchQuery.level = level.toLowerCase();
   if (isFree !== undefined) searchQuery.isFree = isFree === true || isFree === "true";
@@ -72,12 +85,12 @@ async function doSearchCourses(query, filters = {}, options = {}) {
     case "newest": sort = { createdAt: -1 }; break;
     case "relevance":
     default:
-      if (query) sort = { score: { $meta: "textScore" }, totalStudents: -1 };
+      if (query) sort = { totalStudents: -1, rating: -1, createdAt: -1 };
       break;
   }
 
   const [courses, total] = await Promise.all([
-    Course.find(searchQuery, query ? { score: { $meta: "textScore" } } : {})
+    Course.find(searchQuery)
       .populate("instructor", "name avatar")
       .sort(sort)
       .skip(skip)

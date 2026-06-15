@@ -28,6 +28,11 @@ type ReviewStats = {
   distribution: Record<number, number>;
 };
 
+type SearchApiResponse = ApiResponse<Course[]> & {
+  courses?: Course[];
+  pagination?: PaginatedResponse<Course>["pagination"];
+};
+
 // Public courses
 export const courseApi = {
   getCourses: async (filters?: CourseFilters) => {
@@ -284,10 +289,19 @@ export const userFollowApi = {
 // Search
 export const searchApi = {
   search: async (filters: CourseFilters) => {
-    const response = await api.get<PaginatedResponse<Course>>("/search", {
+    const response = await api.get<SearchApiResponse>("/search", {
       params: filters,
     });
-    return response.data;
+    return {
+      success: response.data.success,
+      data: response.data.courses ?? response.data.data ?? [],
+      pagination: response.data.pagination ?? {
+        page: filters.page ?? 1,
+        limit: filters.limit ?? 10,
+        total: response.data.courses?.length ?? response.data.data?.length ?? 0,
+        totalPages: 1,
+      },
+    };
   },
 
   getTrending: async (limit = 10) => {

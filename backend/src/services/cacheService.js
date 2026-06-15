@@ -374,7 +374,7 @@ async function getUserRecommendations(userId, fetchFn, limit = 6) {
  */
 async function getSearchResults(q, filters, options, fetchFn) {
   // Don't cache searches with dynamic price filters
-  if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
+  if (q || filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
     return fetchFn();
   }
 
