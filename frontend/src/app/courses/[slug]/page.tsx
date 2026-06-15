@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { buildBackendApiUrl } from "@/lib/serverApi";
 import { CourseDetailClient } from "./CourseDetailClient";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -10,7 +9,7 @@ interface PageProps {
 
 async function getCourseBySlug(slug: string) {
   try {
-    const response = await fetch(`${API_URL}/courses/slug/${slug}`, {
+    const response = await fetch(buildBackendApiUrl(`/courses/slug/${slug}`), {
       next: { revalidate: 300 },
     });
 

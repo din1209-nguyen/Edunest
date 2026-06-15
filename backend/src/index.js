@@ -33,6 +33,15 @@ import { setupSocket } from "./services/socketService.js";
 
 const app = express();
 
+function logRuntimeConfig() {
+  console.log("[config] Runtime URLs and auth cookie mode:");
+  console.log(`[config] FRONTEND_URL/CORS origin: ${config.cors.origin}`);
+  console.log(`[config] GOOGLE_CALLBACK_URL: ${config.google.callbackUrl}`);
+  console.log(`[config] AUTH_COOKIE_SECURE: ${config.auth.secureCookies}`);
+  console.log(`[config] AUTH_COOKIE_SAME_SITE: ${config.auth.sameSite}`);
+  console.log(`[config] AUTH_COOKIE_DOMAIN: ${config.auth.cookieDomain || "(unset)"}`);
+}
+
 app.set("etag", false);
 
 app.use(helmet());
@@ -114,6 +123,7 @@ const startServer = async () => {
       console.log(`Socket.io chạy tại http://localhost:${config.port}`);
       console.log(`Môi trường: ${config.nodeEnv}`);
       console.log(`Swagger API docs: http://localhost:${config.port}/api-docs`);
+      logRuntimeConfig();
     });
   } catch (error) {
     console.error("Không thể khởi động server:", error);
