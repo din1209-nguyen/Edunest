@@ -20,6 +20,7 @@ import {
   Grid3X3,
   List,
   ChevronRight,
+  Star,
 } from "lucide-react";
 
 const tabs = [
@@ -264,6 +265,13 @@ export default function MyCoursesPage() {
                       <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
                   </Link>
+                  {course.progress >= 100 ? (
+                    <Link href={`/courses/${course.slug}#reviews`} className="mt-2 block">
+                      <Button className="w-full" variant="outline" size="sm" leftIcon={<Star className="h-4 w-4" />}>
+                        Đánh giá
+                      </Button>
+                    </Link>
+                  ) : null}
                 </CardContent>
               </Card>
             ))}
@@ -296,12 +304,21 @@ export default function MyCoursesPage() {
                         <Progress value={course.progress} className="h-2" />
                       </div>
 
-                      <Link href={`/student/learn/${course.slug}`} className="ml-4">
+                      <div className="ml-4 flex shrink-0 flex-wrap gap-2">
+                        {course.progress >= 100 ? (
+                          <Link href={`/courses/${course.slug}#reviews`}>
+                            <Button variant="outline" size="sm" leftIcon={<Star className="h-4 w-4" />}>
+                              Đánh giá
+                            </Button>
+                          </Link>
+                        ) : null}
+                      <Link href={`/student/learn/${course.slug}`}>
                         <Button size="sm">
                           Vào học
                           <ChevronRight className="ml-1 h-4 w-4" />
                         </Button>
                       </Link>
+                      </div>
                     </div>
                   </div>
                 </div>

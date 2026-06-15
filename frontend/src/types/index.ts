@@ -235,7 +235,14 @@ export interface Review {
   user: User | string;
   rating: number;
   comment: string;
+  helpful?: number;
+  isVerifiedPurchase?: boolean;
+  instructorReply?: {
+    comment: string;
+    repliedAt?: string;
+  } | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // Wishlist Types

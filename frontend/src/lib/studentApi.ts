@@ -17,6 +17,17 @@ import type {
   PopularUser,
 } from "@/types";
 
+type ReviewListApiResponse = ApiResponse<{ reviews: Review[]; pagination: PaginatedResponse<Review>["pagination"] }> & {
+  reviews?: Review[];
+  pagination?: PaginatedResponse<Review>["pagination"];
+};
+
+type ReviewStats = {
+  averageRating: number;
+  totalReviews: number;
+  distribution: Record<number, number>;
+};
+
 // Public courses
 export const courseApi = {
   getCourses: async (filters?: CourseFilters) => {
@@ -128,11 +139,37 @@ export const reviewApi = {
     page = 1,
     limit = 10
   ) => {
-    const response = await api.get<ApiResponse<{ reviews: Review[]; pagination: PaginatedResponse<Review>["pagination"] }>>(
+    const response = await api.get<ReviewListApiResponse>(
       `/courses/${courseId}/reviews`,
       {
         params: { page, limit },
       }
+    );
+    const payload = response.data;
+    return {
+      ...payload,
+      data: payload.data ?? {
+        reviews: payload.reviews ?? [],
+        pagination: payload.pagination ?? {
+          page,
+          limit,
+          total: payload.reviews?.length ?? 0,
+          totalPages: 1,
+        },
+      },
+    };
+  },
+
+  getMyReview: async (courseId: string) => {
+    const response = await api.get<ApiResponse<Review | null>>(
+      `/reviews/my-review/${courseId}`
+    );
+    return response.data;
+  },
+
+  getReviewStats: async (courseId: string) => {
+    const response = await api.get<ApiResponse<ReviewStats>>(
+      `/courses/${courseId}/reviews/stats`
     );
     return response.data;
   },

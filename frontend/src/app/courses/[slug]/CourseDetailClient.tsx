@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card, CardContent } from "@/components/ui/Card";
+import { Textarea } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { enrollInFreeCourseAction, addCourseToCartAction } from "./actions";
 import api from "@/lib/api";
+import { reviewApi } from "@/lib/studentApi";
 import { formatPrice, formatDuration, calculateDiscount, cn } from "@/lib/utils";
 import { useCartStore, useWishlistStore } from "@/stores/wishlistStore";
 import { useAuthStore } from "@/stores/auth";
@@ -32,12 +34,17 @@ import {
   FileText,
   BarChart3,
   ArrowRight,
+  Trash2,
 } from "lucide-react";
-import type { Chapter, Course, Lesson } from "@/types";
+import type { Chapter, Course, Lesson, Review, User } from "@/types";
 
 interface CourseDetailClientProps {
   course: Course;
 }
+
+type CourseReview = Review & {
+  user: User;
+};
 
 const COURSE_THUMBNAIL_FALLBACK = "/placeholder-course.svg";
 
@@ -82,6 +89,18 @@ function lessonIcon(type: Lesson["type"]) {
   return <BarChart3 className="h-4 w-4 text-muted-foreground" />;
 }
 
+function isPopulatedUser(user: Review["user"]): user is User {
+  return typeof user !== "string" && Boolean(user);
+}
+
+function getReviewUserName(review: Review) {
+  return isPopulatedUser(review.user) ? review.user.name : "Học viên";
+}
+
+function getReviewUserAvatar(review: Review) {
+  return isPopulatedUser(review.user) ? review.user.avatar : undefined;
+}
+
 export function CourseDetailClient({ course }: CourseDetailClientProps) {
   const router = useRouter();
   const toast = useToast();
@@ -98,6 +117,17 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
   }, [chapters, expandedChapters]);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isBuyingNow, setIsBuyingNow] = useState(false);
+  const [reviews, setReviews] = useState<CourseReview[]>([]);
+  const [myReview, setMyReview] = useState<Review | null>(null);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
+  const [isReviewDeleting, setIsReviewDeleting] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState({
+    rating: course.rating ?? 0,
+    count: course.reviewCount ?? 0,
+  });
   const [isCartPending, startCartTransition] = useTransition();
   const [isEnrollPending, startEnrollTransition] = useTransition();
 
@@ -151,6 +181,50 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
       isCancelled = true;
     };
   }, [course._id, isAuthenticated]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadReviews() {
+      setIsLoadingReviews(true);
+      try {
+        const [reviewsResponse, myReviewResponse, statsResponse] = await Promise.all([
+          reviewApi.getReviewsByCourse(course._id, 1, 5),
+          isAuthenticated ? reviewApi.getMyReview(course._id).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+          reviewApi.getReviewStats(course._id),
+        ]);
+
+        if (isCancelled) return;
+
+        const nextReviews = (reviewsResponse.data?.reviews ?? []) as CourseReview[];
+        const nextStats = statsResponse.data;
+        const nextMyReview = myReviewResponse.data ?? null;
+
+        setReviews(nextReviews);
+        setMyReview(nextMyReview);
+        if (nextMyReview) {
+          setReviewRating(nextMyReview.rating);
+          setReviewComment(nextMyReview.comment || "");
+        }
+        setReviewSummary((current) => ({
+          rating: nextStats?.averageRating ?? course.rating ?? current.rating,
+          count: nextStats?.totalReviews ?? course.reviewCount ?? current.count,
+        }));
+      } catch {
+        if (!isCancelled) {
+          setReviews([]);
+        }
+      } finally {
+        if (!isCancelled) setIsLoadingReviews(false);
+      }
+    }
+
+    void loadReviews();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [course._id, course.rating, course.reviewCount, isAuthenticated]);
 
   const toggleChapter = (chapterId: string) => {
     setExpandedChapters((prev) =>
@@ -239,6 +313,75 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
     }
   };
 
+  const refreshReviews = async () => {
+    const [reviewsResponse, statsResponse] = await Promise.all([
+      reviewApi.getReviewsByCourse(course._id, 1, 5),
+      reviewApi.getReviewStats(course._id),
+    ]);
+    const nextReviews = (reviewsResponse.data?.reviews ?? []) as CourseReview[];
+    const nextStats = statsResponse.data;
+
+    setReviews(nextReviews);
+    setReviewSummary((current) => ({
+      rating: nextStats?.averageRating ?? current.rating,
+      count: nextStats?.totalReviews ?? reviewsResponse.data?.pagination?.total ?? nextReviews.length,
+    }));
+  };
+
+  const handleSubmitReview = async () => {
+    if (!isAuthenticated) {
+      toast.warning("Vui lòng đăng nhập để đánh giá khóa học");
+      router.push("/login");
+      return;
+    }
+
+    if (!isEnrolled) {
+      toast.warning("Bạn cần ghi danh khóa học trước khi đánh giá");
+      return;
+    }
+
+    setIsReviewSubmitting(true);
+    try {
+      const trimmedComment = reviewComment.trim();
+      const response = myReview
+        ? await reviewApi.updateReview(myReview._id, reviewRating, trimmedComment)
+        : await reviewApi.createReview(course._id, reviewRating, trimmedComment);
+
+      if (response.data) {
+        setMyReview(response.data);
+        setReviewRating(response.data.rating);
+        setReviewComment(response.data.comment || "");
+      }
+
+      await refreshReviews();
+      toast.success(myReview ? "Đã cập nhật đánh giá" : "Đã gửi đánh giá khóa học");
+    } catch (error) {
+      const apiError = error as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(apiError.response?.data?.message || apiError.message || "Không thể gửi đánh giá lúc này");
+    } finally {
+      setIsReviewSubmitting(false);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!myReview || isReviewDeleting) return;
+
+    setIsReviewDeleting(true);
+    try {
+      await reviewApi.deleteReview(myReview._id);
+      setMyReview(null);
+      setReviewRating(5);
+      setReviewComment("");
+      await refreshReviews();
+      toast.success("Đã xóa đánh giá");
+    } catch (error) {
+      const apiError = error as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(apiError.response?.data?.message || apiError.message || "Không thể xóa đánh giá lúc này");
+    } finally {
+      setIsReviewDeleting(false);
+    }
+  };
+
   const benefits = course.benefits?.length
     ? course.benefits
     : [
@@ -287,7 +430,7 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
               <div className="mt-6 flex flex-wrap gap-6 text-sm text-white/80">
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-warning text-warning" />
-                  {(course.rating ?? 0).toFixed(1)} ({course.reviewCount ?? 0} đánh giá)
+                  {reviewSummary.rating.toFixed(1)} ({reviewSummary.count} đánh giá)
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
@@ -499,7 +642,7 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
                     <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-warning text-warning" />
-                        {(course.rating ?? 0).toFixed(1)}/5 đánh giá
+                        {reviewSummary.rating.toFixed(1)}/5 đánh giá
                       </span>
                       <span className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
@@ -515,7 +658,142 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card id="reviews" className="mb-8 scroll-mt-24">
+              <CardContent className="p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">Đánh giá học viên</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Chia sẻ trải nghiệm học tập để giúp học viên khác chọn khóa học phù hợp.
+                    </p>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <div className="text-4xl font-bold text-primary-600">{reviewSummary.rating.toFixed(1)}</div>
+                    <div className="mt-1 flex gap-0.5 sm:justify-end">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={cn(
+                            "h-4 w-4",
+                            star <= Math.round(reviewSummary.rating) ? "fill-warning text-warning" : "text-muted"
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{reviewSummary.count} đánh giá</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-lg border border-border bg-surface/40 p-4">
+                  {isAuthenticated && isEnrolled ? (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {myReview ? "Cập nhật đánh giá của bạn" : "Đánh giá khóa học này"}
+                        </p>
+                        <div className="mt-2 flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setReviewRating(star)}
+                              className="rounded-md p-1 transition hover:bg-warning/10"
+                              aria-label={`${star} sao`}
+                            >
+                              <Star
+                                className={cn(
+                                  "h-6 w-6",
+                                  star <= reviewRating ? "fill-warning text-warning" : "text-muted-foreground"
+                                )}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <Textarea
+                        value={reviewComment}
+                        onChange={(event) => setReviewComment(event.target.value)}
+                        maxLength={2000}
+                        placeholder="Khóa học này giúp bạn tiến bộ như thế nào?"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={handleSubmitReview} isLoading={isReviewSubmitting}>
+                          {myReview ? "Cập nhật đánh giá" : "Gửi đánh giá"}
+                        </Button>
+                        {myReview ? (
+                          <Button
+                            variant="outline"
+                            onClick={handleDeleteReview}
+                            isLoading={isReviewDeleting}
+                            leftIcon={<Trash2 className="h-4 w-4" />}
+                          >
+                            Xóa đánh giá
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      {isAuthenticated
+                        ? "Bạn cần ghi danh khóa học trước khi đánh giá."
+                        : "Đăng nhập và ghi danh khóa học để gửi đánh giá."}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  {isLoadingReviews ? (
+                    <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                      Đang tải đánh giá...
+                    </div>
+                  ) : reviews.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                      Khóa học này chưa có đánh giá nào.
+                    </div>
+                  ) : (
+                    reviews.map((review) => (
+                      <div key={review._id} className="rounded-lg border border-border p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Avatar src={getReviewUserAvatar(review)} name={getReviewUserName(review)} size="md" />
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground">{getReviewUserName(review)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(review.createdAt).toLocaleDateString("vi-VN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={cn(
+                                  "h-4 w-4",
+                                  star <= review.rating ? "fill-warning text-warning" : "text-muted"
+                                )}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        {review.comment ? (
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                            {review.comment}
+                          </p>
+                        ) : null}
+                        {review.instructorReply?.comment ? (
+                          <div className="mt-3 rounded-lg bg-primary-50 p-3 text-sm text-primary-900">
+                            <p className="font-medium">Phản hồi của giảng viên</p>
+                            <p className="mt-1 whitespace-pre-wrap">{review.instructorReply.comment}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {false ? <Card>
               <CardContent className="p-6">
                 <h2 className="text-xl font-bold text-foreground">Đánh giá học viên</h2>
                 <div className="mt-4 flex flex-wrap items-center gap-6">
@@ -546,7 +824,7 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
                   )}
                 </div>
               </CardContent>
-            </Card>
+            </Card> : null}
           </div>
 
           <div className="lg:hidden">
