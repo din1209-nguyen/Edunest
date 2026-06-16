@@ -3,11 +3,11 @@
 <div align="center">
 
 ![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=next.js&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16.2.6-000000?style=flat-square&logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19.2.4-61DAFB?style=flat-square&logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38BDF8?style=flat-square&logo=tailwind-css&logoColor=white)
-![Express](https://img.shields.io/badge/Express-5-000000?style=flat-square&logo=express&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5.2.1-000000?style=flat-square&logo=express&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?style=flat-square&logo=mongodb&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-Upstash-DC382D?style=flat-square&logo=redis&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
@@ -16,7 +16,7 @@
 
 **Edunest** là nền tảng học tiếng Anh trực tuyến theo mô hình MOOC, lấy cảm hứng từ Udemy. Hệ thống hỗ trợ hai vai trò trong RBAC: **người dùng (user)** và **quản trị viên (admin)**. Mọi tài khoản đã đăng ký đều có thể tạo và quản lý khóa học; admin chịu trách nhiệm duyệt nội dung và vận hành hệ thống.
 
-> **Kiến trúc:** Dự án tách thành hai tiến trình độc lập — `frontend` (Next.js 15 App Router) và `backend` (Express 5 + Socket.IO). Giao tiếp qua HTTPS và JWT, dữ liệu lưu trong MongoDB, cache/queue dùng Redis. Frontend proxy `/api` và `/socket.io` sang backend qua cơ chế rewrite của Next.js, giúp cookie đăng nhập gắn theo domain frontend.
+> **Kiến trúc:** Dự án tách thành hai tiến trình độc lập — `frontend` (Next.js 16.2.6 App Router) và `backend` (Express 5.2.1 + Socket.IO 4.8.1). Giao tiếp qua HTTPS và JWT, dữ liệu lưu trong MongoDB, cache/queue dùng Redis. Frontend proxy `/api` và `/socket.io` sang backend qua cơ chế rewrite của Next.js, giúp cookie đăng nhập gắn theo domain frontend.
 
 [Demo](#demo) · [Tính năng](#tính-năng) · [Kiến trúc](#kiến-trúc) · [Cài đặt](#cài-đặt) · [API Docs](#api-documentation) · [Deployment](#deployment)
 
@@ -95,8 +95,8 @@
 ```mermaid
 flowchart LR
   Browser["Browser"]
-  Vercel["Vercel\nNext.js 15 App Router"]
-  Render["Render\nExpress 5 + Socket.IO"]
+  Vercel["Vercel\nNext.js 16.2.6 App Router"]
+  Render["Render\nExpress 5.2.1 + Socket.IO 4.8.1"]
   Mongo[("MongoDB Atlas")]
   Upstash[("Upstash Redis")]
   Cloudinary["Cloudinary\nVideo / Image / PDF"]
@@ -131,7 +131,7 @@ flowchart LR
 
 ```
 edunest/
-├── frontend/                        # Next.js 15 (App Router, TypeScript)
+├── frontend/                        # Next.js 16.2.6 (App Router, TypeScript)
 │   ├── src/
 │   │   ├── app/                     # App Router pages
 │   │   │   ├── (public)/            # /, /courses, /search, /categories…
@@ -156,7 +156,7 @@ edunest/
 │   ├── next.config.ts               # Cấu hình rewrite /api, /socket.io
 │   └── package.json
 │
-├── backend/                         # Node.js / Express 5 (ES Modules)
+├── backend/                         # Node.js / Express 5.2.1 (ES Modules)
 │   ├── src/
 │   │   ├── index.js
 │   │   ├── config/                  # env, database, email
@@ -189,23 +189,23 @@ edunest/
 
 | Layer | Công nghệ |
 |-------|-----------|
-| Frontend | Next.js 15 (App Router), React 19, TypeScript 5 |
+| Frontend | Next.js 16.2.6 (App Router), React 19.2.4, TypeScript 5 |
 | Styling | Tailwind CSS 4, Shadcn-style components, lucide-react |
 | State | Zustand 5 |
-| Form | React Hook Form + Zod |
+| Form / Validation | React Hook Form 7.54.2 + Zod 3.24.1 (frontend) / Zod 4.4.3 (backend) |
 | HTTP | Axios (qua rewrite `/api`) |
-| Realtime | Socket.IO client |
-| Backend | Node.js 20+, Express 5 (ES Modules) |
-| Database | MongoDB 7, Mongoose 9 |
-| Auth | JWT + Refresh Token (HTTP-only cookie) + Google OAuth 2.0 |
-| Upload | Cloudinary (video, image, PDF) |
-| Cache | Redis 7 (Docker local) / Upstash Redis (production) |
+| Realtime | Socket.IO client 4.8.3 / Socket.IO server 4.8.1 |
+| Backend | Node.js 20+, Express 5.2.1 (ES Modules) |
+| Database | MongoDB 7, Mongoose 9.6.2 |
+| Auth | jsonwebtoken 9.0.3 + Refresh Token (HTTP-only cookie) + Google OAuth 2.0 |
+| Upload | Cloudinary 2.6.1 (video, image, PDF) |
+| Cache | Redis 7 (Docker local) / ioredis 5.6.1 / Upstash Redis (production) |
 | Payment | VNPay Sandbox + mock checkout |
-| AI | Google Gemini API (`gemini-2.5-flash`) |
-| Email | Nodemailer + Brevo SMTP |
+| AI | @google/genai 1.52.0 (`gemini-2.5-flash`) |
+| Email | Nodemailer 6.9.16 + Brevo SMTP |
 | Container | Docker Compose |
-| Testing | Jest + Supertest + mongodb-memory-server |
-| Docs | Swagger UI / swagger-jsdoc |
+| Testing | Jest 30.2.0 + Supertest 7.2.2 + mongodb-memory-server 11.1.0 |
+| Docs | Swagger UI Express 5.0.1 / swagger-jsdoc 6.2.8 |
 
 ---
 
