@@ -114,10 +114,12 @@ async function enrollFreeCourse(userId, courseId) {
       if (useTransaction) await session.commitTransaction();
       await invalidateOnEnrollment(userId);
       await invalidateTeacherStats(course.instructor?.toString());
-      return existing.populate({
+      existing.$session(null);
+      await existing.populate({
         path: "course",
         select: "title slug thumbnail level category",
       });
+      return existing;
     }
 
     // Tạo enrollment mới cho khóa học miễn phí
@@ -139,10 +141,13 @@ async function enrollFreeCourse(userId, courseId) {
     await invalidateOnEnrollment(userId);
     await invalidateTeacherStats(course.instructor?.toString());
 
-    return enrollment[0].populate({
+    const enrollmentRecord = enrollment[0];
+    enrollmentRecord.$session(null);
+    await enrollmentRecord.populate({
       path: "course",
       select: "title slug thumbnail level category",
     });
+    return enrollmentRecord;
   } catch (error) {
     if (useTransaction) await session.abortTransaction();
     throw error;
