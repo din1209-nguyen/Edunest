@@ -72,6 +72,7 @@ export interface Course {
   pendingPrice?: number | null;
   pendingDiscountPrice?: number | null;
   pendingIsFree?: boolean | null;
+  isFree?: boolean;
   shortDescription?: string;
   level: CourseLevel;
   status: CourseStatus;

@@ -83,6 +83,11 @@ function getEmbeddableVideoUrl(url?: string) {
 }
 
 // Trả về icon tương ứng với loại bài học để giữ UI nhất quán giữa các section
+function isAlreadyInCartError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes("giỏ hàng") || error.message.toLowerCase().includes("gio hang");
+}
+
 function lessonIcon(type: Lesson["type"]) {
   if (type === "video") return <Play className="h-4 w-4 text-primary-500" />;
   if (type === "pdf") return <FileText className="h-4 w-4 text-secondary-500" />;
@@ -137,6 +142,7 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
 
   const isInCartState = hasMounted && isInCart(course._id);
   const isInWishlistState = hasMounted && isInWishlist(course._id);
+  const isFreeCourse = Boolean(course.isFree) || course.price <= 0;
   const discount = calculateDiscount(course.estimatedPrice || course.price * 1.3, course.price);
   const totalLessons = chapters.reduce((acc, chapter) => acc + (chapter.lessons?.length ?? 0), 0);
   const totalDuration = chapters.reduce(
@@ -261,13 +267,31 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
 
     startCartTransition(async () => {
       try {
-        await addCourseToCartAction(course._id);
-        addToCart(course);
-        toast.success("Đã thêm vào giỏ hàng");
+        await ensureCourseInCart();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Không thể thêm vào giỏ hàng");
       }
     });
+  };
+
+  const ensureCourseInCart = async () => {
+    let wasAlreadyInCart = false;
+
+    try {
+      await addCourseToCartAction(course._id);
+    } catch (error) {
+      if (!isAlreadyInCartError(error)) {
+        throw error;
+      }
+      wasAlreadyInCart = true;
+    }
+
+    addToCart(course);
+    if (wasAlreadyInCart) {
+      toast.info("Khóa học đã có trong giỏ hàng");
+    } else {
+      toast.success("Đã thêm khóa học vào giỏ hàng");
+    }
   };
 
   const handleBuyNow = async () => {
@@ -276,14 +300,27 @@ export function CourseDetailClient({ course }: CourseDetailClientProps) {
       router.push("/login");
       return;
     }
-    if (isEnrolled || isBuyingNow || isEnrollPending) {
+    if (isEnrolled) {
       router.push(`/student/learn/${course.slug}`);
+      return;
+    }
+
+    if (isBuyingNow || isEnrollPending) {
       return;
     }
 
     setIsBuyingNow(true);
     startEnrollTransition(async () => {
       try {
+        if (!isFreeCourse) {
+          if (!isInCartState) {
+            await ensureCourseInCart();
+          }
+
+          router.push("/student/cart");
+          return;
+        }
+
         await enrollInFreeCourseAction(course._id, course.slug);
         setIsEnrolled(true);
         toast.success("Ghi danh khóa học thành công");

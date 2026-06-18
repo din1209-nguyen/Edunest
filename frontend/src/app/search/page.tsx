@@ -41,10 +41,9 @@ const ratingOptions = [
   { value: "3.5", label: "3.5 sao trở lên" },
 ];
 
-function SearchContent() {
-  const searchParams = useSearchParams();
+function SearchContent({ initialQuery }: { initialQuery: string }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [sortBy, setSortBy] = useState("relevance");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterLevel, setFilterLevel] = useState("all");
@@ -258,10 +257,16 @@ function SearchContent() {
   );
 }
 
+function SearchRouteContent() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  return <SearchContent key={initialQuery} initialQuery={initialQuery} />;
+}
+
 export default function SearchPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-surface" />}>
-      <SearchContent />
+      <SearchRouteContent />
     </Suspense>
   );
 }

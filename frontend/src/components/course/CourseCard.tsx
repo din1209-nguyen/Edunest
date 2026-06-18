@@ -380,7 +380,7 @@ export function CourseCard({ course, variant = "default", className }: CourseCar
             className="w-full gap-1"
           >
             {isPurchased ? <CheckCircle2 className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
-            {isPurchased ? "Đã mua" : isInCartState ? "Đã thêm" : "Mua ngay"}
+            {isPurchased ? "Đã mua" : isInCartState ? "Đã thêm" : "Thêm vào giỏ hàng"}
           </Button>
         </div>
       </Link>
