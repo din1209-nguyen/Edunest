@@ -223,7 +223,7 @@ edunest/
 
 ```bash
 git clone https://github.com/din1209-nguyen/Edunest.git
-cd edunest
+cd Edunest
 ```
 
 ### 2. Tạo file môi trường
